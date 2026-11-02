@@ -46,6 +46,16 @@ export class DecorBuilder {
     this.geos.set(color, list);
   }
 
+  torus(r: number, tube: number, x: number, y: number, z: number, color: string) {
+    const g = new THREE.TorusGeometry(r, tube, 8, 20);
+    g.rotateX(Math.PI / 2);
+    _m.compose(_p.set(x, y, z), _q.identity(), _s);
+    g.applyMatrix4(_m);
+    const list = this.geos.get(color) ?? [];
+    list.push(g);
+    this.geos.set(color, list);
+  }
+
   flush(parent: THREE.Object3D) {
     for (const [color, list] of this.geos) {
       if (!list.length) continue;
