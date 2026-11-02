@@ -93,6 +93,8 @@ backToCamera:()=>{const dx=camera.position.x-bot.position.x,dz=camera.position.z
 setDitherStrength:(v:number)=>{dither.uniforms.uStrength.value=v;ditherOn=v>0;el('dither').textContent=`抖色：${ditherOn?'开启':'关闭'}`},
 setBotShells:(o: {showOutline?: boolean})=>{botView.setShells?.(o)},
 probeDecals:()=>botView.probeDecals?.(),
+setBlinkOverride:(v:number|null)=>botView.setBlinkOverride?.(v),
+botEyeClosedRatio:()=>botView.botEyeClosedRatio?.(),
 botScreenDisc:()=>{const c=new THREE.Vector3(bot.position.x,BOT_BODY_CENTER_Y,bot.position.z);const top=c.clone();top.y+=BOT_RADIUS;const right=c.clone();right.x+=BOT_RADIUS;const s=new THREE.Vector3(),t=new THREE.Vector3(),r=new THREE.Vector3();s.copy(c).project(camera);t.copy(top).project(camera);r.copy(right).project(camera);const rect=renderer.domElement.getBoundingClientRect();const px=(v:THREE.Vector3)=>((v.x*.5+.5)*rect.width+rect.left);const py=(v:THREE.Vector3)=>((-v.y*.5+.5)*rect.height+rect.top);const cx=px(s),cy=py(s),rad=Math.max(Math.hypot(px(t)-cx,py(t)-cy),Math.hypot(px(r)-cx,py(r)-cy));return{cx,cy,rad,rect:{w:rect.width,h:rect.height}};},
 renderStats:()=>({calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,frameTimeMs:null as number|null}),
 benchRender:(frames=90)=>new Promise<{calls:number;triangles:number;frameTimeMs:number}>((resolve)=>{let i=0;let peakCalls=0;let peakTris=0;const t0=performance.now();const run=()=>{composer.render();peakCalls=Math.max(peakCalls,renderer.info.render.calls);peakTris=Math.max(peakTris,renderer.info.render.triangles);if(++i>=frames){resolve({calls:peakCalls,triangles:peakTris,frameTimeMs:(performance.now()-t0)/frames});return}requestAnimationFrame(run)};requestAnimationFrame(run)}),
