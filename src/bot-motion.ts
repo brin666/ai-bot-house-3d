@@ -1,11 +1,18 @@
-import { BOT_RADIUS } from './bot-metrics';
+import {
+  BOT_BODY_CENTER_Y,
+  BOT_CARRY_HOLD_Y,
+  BOT_PICKUP_STANDOFF,
+  FLOOR_SURFACE_Y,
+  RUG_SURFACE_Y,
+} from './bot-look';
 
-/** Top of walkable floor slab (room-renderer floor mesh). */
-export const FLOOR_SURFACE_Y = 0.06;
-/** Rug tops sit slightly above the floor (details.ts). */
-export const RUG_SURFACE_Y = 0.094;
-/** Sphere centre Y so the bottom clears floor/rugs with a tiny gap. */
-export const BOT_BODY_CENTER_Y = FLOOR_SURFACE_Y + BOT_RADIUS + 0.035;
+export {
+  BOT_BODY_CENTER_Y,
+  BOT_CARRY_HOLD_Y,
+  BOT_PICKUP_STANDOFF,
+  FLOOR_SURFACE_Y,
+  RUG_SURFACE_Y,
+} from './bot-look';
 
 export const botMotion = {
   walk: {
@@ -36,23 +43,22 @@ export const botMotion = {
   carry: {
     bob: 0.04,
     bobHz: 8,
-    holdY: 1.02,
+    holdY: BOT_CARRY_HOLD_Y,
   },
   lift: {
     duration: 1.2,
     startY: 0.07,
-    holdY: 1.02,
+    holdY: BOT_CARRY_HOLD_Y,
   },
   place: {
     duration: 1.15,
-    holdY: 1.02,
+    holdY: BOT_CARRY_HOLD_Y,
     endY: 0.07,
-    /** Horizontal travel must finish before the parcel drops (fraction of timeline). */
     horizontalThrough: 0.62,
     dropStart: 0.52,
   },
   pickup: {
-    standOff: 0.5,
+    standOff: BOT_PICKUP_STANDOFF,
   },
   shadow: {
     groundY: FLOOR_SURFACE_Y + 0.001,
@@ -66,7 +72,6 @@ export const botMotion = {
     doubleBlinkChance: 0.22,
     lookStrength: 0.028,
     cameraGlanceChance: 0.004,
-    pupilRadius: 0.022,
   },
   badge: {
     /** Keep icons readable without punching through walls. */

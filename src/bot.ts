@@ -1,7 +1,13 @@
 import * as THREE from 'three';
-import { BOT_RADIUS } from './bot-metrics';
-import { flatMaterial, look } from './look';
-import { BOT_BODY_CENTER_Y, botMotion, jumpOffset, smoothstep } from './bot-motion';
+import { flatMaterial } from './look';
+import {
+  BOT_RADIUS,
+  botLook,
+  BOT_BODY_CENTER_Y,
+  createBotShadowTexture,
+  sphereSurface,
+} from './bot-look';
+import { botMotion, jumpOffset, smoothstep } from './bot-motion';
 
 export type BotState = 'Idle' | 'Move' | 'Jump' | 'Sleep' | 'Interact' | 'Approach' | 'Lift' | 'Carry' | 'Place';
 export type BotActivity = '' | 'Sleep' | 'Read' | 'Plant' | 'Admire';
@@ -15,35 +21,57 @@ export type BotMotionInput = {
   cameraPos: THREE.Vector3;
 };
 
-type EyeRig = { white: THREE.Mesh; pupil: THREE.Mesh; base: THREE.Vector3; pupilBase: THREE.Vector3 };
+type EyeMesh = THREE.Mesh;
 
 export function createBot() {
   const root = new THREE.Group();
   const visual = new THREE.Group();
   root.add(visual);
+  const bodyGroup = new THREE.Group();
+  visual.add(bodyGroup);
 
-  const body = new THREE.Mesh(new THREE.SphereGeometry(BOT_RADIUS, 24, 16), flatMaterial(look.palette.botBody));
+  const body = new THREE.Mesh(
+    new THREE.SphereGeometry(BOT_RADIUS, 28, 22),
+    flatMaterial(botLook.body),
+  );
   body.position.y = BOT_BODY_CENTER_Y;
   body.castShadow = true;
-  visual.add(body);
+  bodyGroup.add(body);
 
-  const eyes: EyeRig[] = [];
-  for (const x of [-.13, .13]) {
-    const white = new THREE.Mesh(new THREE.SphereGeometry(.055, 12, 8), flatMaterial(look.palette.botEye));
-    const pupil = new THREE.Mesh(
-      new THREE.SphereGeometry(botMotion.eyes.pupilRadius, 8, 6),
-      flatMaterial(look.palette.botBody),
-    );
-    white.position.set(x, BOT_BODY_CENTER_Y + .07, .335);
-    pupil.position.set(x, BOT_BODY_CENTER_Y + .07, .395);
-    visual.add(white, pupil);
-    eyes.push({
-      white,
-      pupil,
-      base: white.position.clone(),
-      pupilBase: pupil.position.clone(),
-    });
+  const outline = new THREE.Mesh(
+    new THREE.SphereGeometry(BOT_RADIUS * 1.038, 28, 22),
+    new THREE.MeshBasicMaterial({ color: botLook.outline, side: THREE.BackSide }),
+  );
+  outline.position.y = BOT_BODY_CENTER_Y;
+  bodyGroup.add(outline);
+
+  const glintMat = new THREE.MeshBasicMaterial({ color: botLook.highlight, toneMapped: false });
+  for (const g of botLook.glints) {
+    const glint = new THREE.Mesh(new THREE.CircleGeometry(BOT_RADIUS * g.size, 10), glintMat);
+    const p = sphereSurface(g.azimuth, g.polar, BOT_RADIUS * 0.992);
+    glint.position.copy(p);
+    glint.lookAt(p.x, p.y + 0.01, p.z + 0.15);
+    bodyGroup.add(glint);
   }
+
+  const eyeMat = new THREE.MeshBasicMaterial({ color: botLook.eye, toneMapped: false });
+  const eyeGroup = new THREE.Group();
+  bodyGroup.add(eyeGroup);
+  const eyes: EyeMesh[] = [];
+  const e = botLook.eyes;
+  for (const side of [-1, 1]) {
+    const cap = new THREE.Mesh(new THREE.CapsuleGeometry(e.radius, e.length, 6, 10), eyeMat);
+    cap.userData.side = side;
+    eyes.push(cap);
+    eyeGroup.add(cap);
+  }
+
+  let blinkAt = 2.8;
+  let blinkCloseUntil = 0;
+  let blinkStage = 0;
+  let glanceAt = 0;
+  const gazeOffset = new THREE.Vector2();
+  layoutNeutralEyes(eyes, 1);
 
   const book = new THREE.Group();
   function part(w: number, h: number, d: number, y: number, color: string) {
@@ -51,19 +79,19 @@ export function createBot() {
     mesh.position.y = y;
     book.add(mesh);
   }
-  part(.4, .04, .28, 0, look.palette.coral);
-  part(.37, .015, .25, .03, look.palette.cream);
-  book.position.set(0, .33, .46);
-  book.rotation.x = -.22;
+  part(0.52, 0.05, 0.36, 0, '#f26d62');
+  part(0.48, 0.018, 0.32, 0.04, '#fff3cc');
+  book.position.set(0, 0.38, BOT_RADIUS * 0.72);
+  book.rotation.x = -0.22;
   book.visible = false;
-  visual.add(book);
+  bodyGroup.add(book);
 
   const sparkles = new THREE.Group();
-  const sparkleInk = new THREE.MeshBasicMaterial({ color: look.palette.spark });
-  for (const [x, y, z] of [[-.48, .88, .15], [.46, 1.02, .05]] as const) {
+  const sparkleInk = new THREE.MeshBasicMaterial({ color: '#f2c14b' });
+  for (const [x, y, z] of [[-0.62, 1.05, 0.18], [0.58, 1.18, 0.08]] as const) {
     const star = new THREE.Group();
     for (const angle of [0, Math.PI / 2]) {
-      const ray = new THREE.Mesh(new THREE.BoxGeometry(.16, .035, .035), sparkleInk);
+      const ray = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.04, 0.04), sparkleInk);
       ray.rotation.z = angle;
       star.add(ray);
     }
@@ -71,17 +99,16 @@ export function createBot() {
     sparkles.add(star);
   }
   sparkles.visible = false;
-  visual.add(sparkles);
+  bodyGroup.add(sparkles);
 
   const badge = new THREE.Group();
+  badge.position.set(0, BOT_BODY_CENTER_Y + BOT_RADIUS + 0.35, 0);
+  root.add(badge);
   const icons: Record<'Sleep' | 'Read' | 'Plant', THREE.Group> = {
     Sleep: new THREE.Group(),
     Read: new THREE.Group(),
     Plant: new THREE.Group(),
   };
-  badge.position.set(0, 1.15, 0);
-  root.add(badge);
-
   function flat(parent: THREE.Object3D, w: number, h: number, x: number, y: number, z: number, color: string, angle = 0) {
     const mesh = new THREE.Mesh(
       new THREE.PlaneGeometry(w, h),
@@ -100,35 +127,50 @@ export function createBot() {
     mesh.renderOrder = botMotion.badge.renderOrder;
     parent.add(mesh);
   }
-  flat(badge, .55, .43, 0, 0, 0, look.palette.ink);
-  flat(badge, .5, .38, 0, 0, .001, look.palette.frameMat);
-  for (const [x, y, w, h, a] of [[0, .1, .2, .035, 0], [0, 0, .22, .035, Math.PI / 4], [0, -.1, .2, .035, 0]] as const)
-    flat(icons.Sleep, w, h, x, y, .003, '#566f80', a);
-  flat(icons.Read, .29, .23, 0, 0, .003, '#b67f6a');
-  flat(icons.Read, .12, .17, -.07, 0, .005, '#fbf3df');
-  flat(icons.Read, .12, .17, .07, 0, .005, '#fbf3df');
-  flat(icons.Read, .012, .17, 0, 0, .006, '#8c7d6e');
-  flat(icons.Plant, .025, .22, 0, -.015, .003, '#6d836b');
-  flat(icons.Plant, .14, .08, -.065, .04, .004, '#91ad86', -.5);
-  flat(icons.Plant, .14, .08, .065, .075, .004, '#91ad86', .5);
+  flat(badge, 0.55, 0.43, 0, 0, 0, '#2c3338');
+  flat(badge, 0.5, 0.38, 0, 0, 0.001, '#fff8ee');
+  for (const [x, y, w, h, a] of [[0, 0.1, 0.2, 0.035, 0], [0, 0, 0.22, 0.035, Math.PI / 4], [0, -0.1, 0.2, 0.035, 0]] as const)
+    flat(icons.Sleep, w, h, x, y, 0.003, '#566f80', a);
+  flat(icons.Read, 0.29, 0.23, 0, 0, 0.003, '#b67f6a');
+  flat(icons.Read, 0.12, 0.17, -0.07, 0, 0.005, '#fbf3df');
+  flat(icons.Read, 0.12, 0.17, 0.07, 0, 0.005, '#fbf3df');
+  flat(icons.Read, 0.012, 0.17, 0, 0, 0.006, '#8c7d6e');
+  flat(icons.Plant, 0.025, 0.22, 0, -0.015, 0.003, '#6d836b');
+  flat(icons.Plant, 0.14, 0.08, -0.065, 0.04, 0.004, '#91ad86', -0.5);
+  flat(icons.Plant, 0.14, 0.08, 0.065, 0.075, 0.004, '#91ad86', 0.5);
   for (const icon of Object.values(icons)) badge.add(icon);
   badge.visible = false;
 
+  const shadowTex = createBotShadowTexture();
   const contactShadow = new THREE.Mesh(
-    new THREE.CircleGeometry(BOT_RADIUS * .88, 24),
-    new THREE.MeshBasicMaterial({ color: '#1a1410', transparent: true, opacity: .22, depthWrite: false }),
+    new THREE.CircleGeometry(BOT_RADIUS * botLook.shadow.radiusScale, 32),
+    new THREE.MeshBasicMaterial({
+      map: shadowTex,
+      transparent: true,
+      opacity: botLook.shadow.baseOpacity,
+      depthWrite: false,
+      toneMapped: false,
+    }),
   );
   contactShadow.rotation.x = -Math.PI / 2;
-  contactShadow.position.y = botMotion.shadow.groundY;
+  contactShadow.position.y = botLook.shadow.groundY;
   root.add(contactShadow);
 
   root.position.set(0, 0, 2);
   root.rotation.y = Math.PI / 4;
 
-  let blinkAt = 2.8;
-  let blinkCloseUntil = 0;
-  let blinkStage = 0;
-  let glanceAt = 0;
+  function layoutNeutralEyes(list: EyeMesh[], blinkOpen: number) {
+    const cfg = botLook.eyes;
+    const center = sphereSurface(cfg.azimuth, cfg.polar, BOT_RADIUS * 0.993);
+    eyeGroup.position.copy(center);
+    eyeGroup.position.z -= BOT_RADIUS * 0.02;
+    for (const cap of list) {
+      const side = cap.userData.side as number;
+      cap.rotation.set(0, 0, 0);
+      cap.position.set(side * cfg.spacing * 0.5 + gazeOffset.x, gazeOffset.y, 0);
+      cap.scale.set(1, cfg.length / (cfg.radius * 2) * blinkOpen, 1);
+    }
+  }
 
   function expressionFor(state: BotState, activity: BotActivity): BotExpression {
     if (state === 'Sleep' || activity === 'Sleep') return 'sleepy';
@@ -138,61 +180,65 @@ export function createBot() {
     return 'neutral';
   }
 
-  function applyExpression(expr: BotExpression, blinkScale: number) {
-    for (const eye of eyes) {
-      if (expr === 'sleepy') {
-        eye.white.scale.set(1, .14 * blinkScale, 1);
-      } else if (expr === 'surprised') {
-        eye.white.scale.set(1.12 * blinkScale, 1.18 * blinkScale, 1.08);
-        eye.pupil.scale.set(.75, .75, .75);
-      } else if (expr === 'happy') {
-        eye.white.scale.set(1.04 * blinkScale, .82 * blinkScale, 1);
-      } else {
-        eye.white.scale.set(1, blinkScale, 1);
-        eye.pupil.scale.set(1, 1, 1);
+  function applyExpression(expr: BotExpression, blinkOpen: number) {
+    layoutNeutralEyes(eyes, blinkOpen);
+    const [left, right] = eyes;
+    if (expr === 'sleepy') {
+      for (const cap of eyes) {
+        cap.scale.y = 0.12 * blinkOpen;
+        cap.position.y -= 0.02;
       }
+    } else if (expr === 'surprised') {
+      for (const cap of eyes) {
+        cap.scale.x = 1.12;
+        cap.scale.y = (botLook.eyes.length / (botLook.eyes.radius * 2)) * 1.25 * blinkOpen;
+        cap.scale.z = 1.05;
+      }
+    } else if (expr === 'happy') {
+      left.rotation.z = 0.62;
+      right.rotation.z = -0.62;
+      left.scale.set(0.62 * blinkOpen, 0.22, 0.35);
+      right.scale.set(0.62 * blinkOpen, 0.22, 0.35);
+      left.position.y += 0.015;
+      right.position.y += 0.015;
     }
   }
 
   function updateBlink(time: number) {
+    const cfg = botLook.eyes;
     if (time >= blinkAt) {
-      blinkCloseUntil = time + botMotion.eyes.blinkClose;
-      blinkStage = Math.random() < botMotion.eyes.doubleBlinkChance ? 2 : 1;
-      blinkAt = time + botMotion.eyes.blinkMin + Math.random() * (botMotion.eyes.blinkMax - botMotion.eyes.blinkMin);
+      blinkCloseUntil = time + cfg.blinkClose;
+      blinkStage = Math.random() < cfg.doubleBlinkChance ? 2 : 1;
+      blinkAt = time + cfg.blinkMin + Math.random() * (cfg.blinkMax - cfg.blinkMin);
     }
-    if (blinkStage > 0 && time > blinkCloseUntil + .08) {
+    if (blinkStage > 0 && time > blinkCloseUntil + 0.08) {
       if (blinkStage > 1) {
         blinkStage = 1;
-        blinkCloseUntil = time + botMotion.eyes.blinkClose * .85;
+        blinkCloseUntil = time + cfg.blinkClose * 0.85;
       } else blinkStage = 0;
     }
-    return time < blinkCloseUntil ? .08 : 1;
+    return time < blinkCloseUntil ? 0.06 : 1;
   }
 
   function updateEyes(time: number, motion: BotMotionInput, expr: BotExpression) {
     let target = motion.gaze?.clone() ?? null;
-    if (!target && motion.moveDir && motion.moveDir.lengthSq() > .01) {
+    if (!target && motion.moveDir && motion.moveDir.lengthSq() > 0.01) {
       target = root.localToWorld(new THREE.Vector3(motion.moveDir.x, 0, motion.moveDir.y));
     }
     if (!target && time > glanceAt) {
       target = motion.cameraPos.clone();
       glanceAt = time + 2.5 + Math.random() * 4;
-    } else if (Math.random() < botMotion.eyes.cameraGlanceChance) glanceAt = time;
+    } else if (Math.random() < botLook.eyes.cameraGlanceChance) glanceAt = time;
 
-    const blinkScale = updateBlink(time);
-    applyExpression(expr, blinkScale);
-
-    for (const eye of eyes) {
-      eye.white.position.copy(eye.base);
-      eye.pupil.position.copy(eye.pupilBase);
-      if (!target) continue;
+    gazeOffset.set(0, 0);
+    if (target) {
       const local = root.worldToLocal(target.clone());
-      const dir = new THREE.Vector3(local.x - eye.base.x, local.y - eye.base.y, local.z - eye.base.z).normalize();
-      const offset = botMotion.eyes.lookStrength;
-      eye.pupil.position.x += dir.x * offset * 2.2;
-      eye.pupil.position.y += dir.y * offset * 1.4;
-      eye.pupil.position.z += dir.z * offset * .6;
+      const slide = botLook.eyes.gazeSlide;
+      gazeOffset.x = THREE.MathUtils.clamp(local.x * slide * 0.35, -slide, slide);
+      gazeOffset.y = THREE.MathUtils.clamp(local.y * slide * 0.22, -slide * 0.5, slide * 0.35);
     }
+    const blinkOpen = updateBlink(time);
+    applyExpression(expr, blinkOpen);
   }
 
   function update(
@@ -218,35 +264,39 @@ export function createBot() {
     } else if (state === 'Move' || state === 'Approach' || state === 'Carry') {
       const bob = state === 'Carry' ? botMotion.carry.bob : botMotion.walk.stepBob;
       const hz = state === 'Carry' ? botMotion.carry.bobHz : botMotion.walk.stepHz;
-      yOff = Math.abs(Math.sin(time * hz)) * bob * smoothstep(0, .25, motion.moveSpeed);
+      yOff = Math.abs(Math.sin(time * hz)) * bob * smoothstep(0, 0.25, motion.moveSpeed);
       if (motion.moveDir) lean = -motion.moveDir.x * botMotion.walk.lean * motion.moveSpeed;
     } else if (state === 'Interact' && activity === 'Admire') {
-      yOff = Math.abs(Math.sin(time * 3)) * .04;
+      yOff = Math.abs(Math.sin(time * 3)) * 0.04;
     } else if (state === 'Sleep') {
-      yOff = Math.sin(time * .7) * .008;
+      yOff = Math.sin(time * 0.7) * 0.008;
     } else {
       yOff = Math.sin(time * botMotion.idle.bobHz) * botMotion.idle.bob;
     }
 
     visual.position.y = yOff;
-    visual.rotation.z = lean || (state === 'Sleep' ? .1 * Math.sin(time * .7) : activity === 'Plant' ? .1 * Math.sin(time * 2) : activity === 'Admire' ? .07 * Math.sin(time * 3) : 0);
-    visual.scale.set(scaleXZ, scaleY, scaleXZ);
-    if (state === 'Sleep') visual.scale.y *= .92;
+    visual.rotation.z =
+      lean ||
+      (state === 'Sleep' ? 0.1 * Math.sin(time * 0.7) : activity === 'Plant' ? 0.1 * Math.sin(time * 2) : activity === 'Admire' ? 0.07 * Math.sin(time * 3) : 0);
+    bodyGroup.scale.set(scaleXZ, scaleY, scaleXZ);
+    if (state === 'Sleep') bodyGroup.scale.y *= 0.92;
 
     sparkles.visible = state === 'Interact' && activity === 'Admire';
-    sparkles.scale.setScalar(.8 + .2 * Math.sin(time * 5));
+    sparkles.scale.setScalar(0.8 + 0.2 * Math.sin(time * 5));
     book.visible = state === 'Interact' && activity === 'Read';
 
-    const activeIcon = state === 'Sleep' ? 'Sleep' : state === 'Interact' && (activity === 'Read' || activity === 'Plant') ? activity : null;
+    const activeIcon =
+      state === 'Sleep' ? 'Sleep' : state === 'Interact' && (activity === 'Read' || activity === 'Plant') ? activity : null;
     badge.visible = activeIcon !== null;
     for (const [name, icon] of Object.entries(icons)) icon.visible = name === activeIcon;
     badge.quaternion.copy(root.quaternion).invert().multiply(cameraRotation);
-    badge.position.y = 1.12 + Math.sin(time * 2) * .02 + yOff * .35;
+    badge.position.y = BOT_BODY_CENTER_Y + BOT_RADIUS + 0.35 + Math.sin(time * 2) * 0.02 + yOff * 0.35;
 
     const air = Math.max(0, yOff);
-    const shadowScale = botMotion.shadow.baseScale * (1 - Math.min(botMotion.shadow.airFade, air * 1.4));
+    const shadowScale = botLook.shadow.radiusScale * (1 - Math.min(botLook.shadow.airFade, air * 1.4));
     contactShadow.scale.set(shadowScale, shadowScale, 1);
-    (contactShadow.material as THREE.MeshBasicMaterial).opacity = .22 * (1 - Math.min(.75, air * 2));
+    (contactShadow.material as THREE.MeshBasicMaterial).opacity =
+      botLook.shadow.baseOpacity * (1 - Math.min(0.75, air * 2));
   }
 
   return { root, update };

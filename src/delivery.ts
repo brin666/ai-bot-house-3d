@@ -1,5 +1,6 @@
 import { catalog, type Item, type Kind } from './store';
 import { path, validPlacement, preservesConnectivity, trimPathEnd } from './navigation';
+import { BOT_PICKUP_STANDOFF } from './bot-look';
 import data from './scene.json';
 type Room=typeof data.rooms[number];
 export type DeliveryPlan={item:Item;pickup:[number,number];toPickup:[number,number][];toTarget:[number,number][]};
@@ -7,7 +8,7 @@ export function planDelivery(kind:Kind,rooms:Room[],items:Item[],botX:number,bot
  const info=catalog[kind];
  let plan:{item:Item;pickup:[number,number];toPickup:[number,number][];toTarget:[number,number][]}|null=null;
  const pickups:[[number,number],[number,number],[number,number],[number,number]]=[[0,3],[1,3],[-1,3],[0,2]];
- for(const pickup of pickups){let toPickup=path(botX,botZ,...pickup,items);toPickup=trimPathEnd(toPickup,pickup);if(!toPickup.length&&Math.hypot(botX-pickup[0],botZ-pickup[1])>.55)continue;
+ for(const pickup of pickups){let toPickup=path(botX,botZ,...pickup,items);toPickup=trimPathEnd(toPickup,pickup,BOT_PICKUP_STANDOFF);if(!toPickup.length&&Math.hypot(botX-pickup[0],botZ-pickup[1])>BOT_PICKUP_STANDOFF+.05)continue;
   for(const room of [...rooms].reverse()){if(plan)break;
    for(let z=Math.floor((room.position[1]+room.size[1]/2-.75)*2)/2;z>=room.position[1]-room.size[1]/2+.75&&!plan;z-=.5)for(let x=Math.floor((room.position[0]+room.size[0]/2-.75)*2)/2;x>=room.position[0]-room.size[0]/2+.75;x-=.5){
     const item:Item={id:`${kind}-${Date.now()}`,type:kind,roomId:room.id,x,z,rotation:0,purchased:true,price:info.price};if(!validPlacement(item,items)||Math.hypot(x-pickup[0],z-pickup[1])<1.1)continue;

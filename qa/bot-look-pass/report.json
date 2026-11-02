@@ -1,0 +1,18 @@
+{
+  "verification": "Headless Chrome with SwiftShader WebGL — not a phone or livestream device.",
+  "runtime_confirmed": {
+    "botRadius": 0.52,
+    "liftMinPickupSep": 0.7071067811865476,
+    "liftPickupOk": true,
+    "placeMinCarryYNearBot": 1.5550000000000002,
+    "placeHoldOk": true,
+    "floorClearanceMin": 0.034999999999999976,
+    "rugClearanceMin": 0.0009999999999999731
+  },
+  "code_reasoning": [
+    "Gloss highlights: MeshBasicMaterial glints + look.dither.highlightFloor in paper pass",
+    "Pickup standoff: BOT_PICKUP_STANDOFF + trimPathEnd in delivery/navigation",
+    "Place carry height: BOT_CARRY_HOLD_Y from bot-look.ts",
+    "Door passage: path still crosses portals at |offset| < width/2 - BOT_CLEARANCE"
+  ]
+}

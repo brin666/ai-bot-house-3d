@@ -24,6 +24,8 @@ export const look = {
     contrast: 1.04,
     exposure: 1,
     shoulder: 0.05,
+    /** Near-white specular glints (bot highlights) stay above this after quantize. */
+    highlightFloor: 0.82,
   },
   outline: {
     color: '#241c18',

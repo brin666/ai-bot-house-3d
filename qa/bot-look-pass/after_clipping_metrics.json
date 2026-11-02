@@ -1,0 +1,9 @@
+{
+  "botRadius": 0.52,
+  "liftMinPickupSep": 0.7071067811865476,
+  "liftPickupOk": true,
+  "placeMinCarryYNearBot": 1.5550000000000002,
+  "placeHoldOk": true,
+  "floorClearanceMin": 0.034999999999999976,
+  "rugClearanceMin": 0.0009999999999999731
+}
