@@ -1,9 +1,50 @@
 import * as THREE from 'three';
 import data from './scene.json';
-type Room=typeof data.rooms[number];
-function cube(w:number,h:number,d:number,x:number,y:number,z:number,color:string,parent:THREE.Object3D){const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({color,roughness:1}));mesh.position.set(x,y,z);mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh)}
-export function drawRooms(roomGroup:THREE.Group,rooms:Room[]){roomGroup.clear();
-for(const room of rooms){const [rx,rz]=room.position,[w,d]=room.size;cube(w+.16,.16,d+.16,rx,-.10,rz,'#aeb9ba',roomGroup);cube(w,.12,d,rx,0,rz,room.floor,roomGroup);for(let i=0;i<16;i++)cube(w,.008,.018,rx,.064,rz-d/2+i*.5,'#d0bca1',roomGroup);if(room.walls.includes('north')){cube(w+.12,2.35,.12,rx,1.18,rz-d/2,'#eee5d5',roomGroup);cube(w+.14,.06,.15,rx,2.37,rz-d/2,'#a8b5b5',roomGroup)}if(room.walls.includes('west')){cube(.12,2.35,d,rx-w/2,1.18,rz,'#e6e6d7',roomGroup);cube(.15,.06,d,rx-w/2,2.37,rz,'#a8b5b5',roomGroup)}}
-// Shared low walls leave a clear two-unit passage between connected rooms.
-for(const room of rooms) for(const c of room.connections){if(!rooms.some(r=>r.id===c.to))continue;if(c.side!=='east'&&c.side!=='south')continue;const horizontal=c.side==='east';const edge=horizontal?room.position[0]+room.size[0]/2:room.position[1]+room.size[1]/2;const mid=(horizontal?room.position[1]:room.position[0])+c.offset;const half=(horizontal?room.size[1]:room.size[0])/2;const start=(horizontal?room.position[1]:room.position[0])-half;const left=mid-c.width/2-start,right=start+half*2-(mid+c.width/2);if(left>0){if(horizontal)cube(.12,.48,left,edge,.26,start+left/2,'#d8d9cb',roomGroup);else cube(left,.48,.12,start+left/2,.26,edge,'#d8d9cb',roomGroup)}if(right>0){if(horizontal)cube(.12,.48,right,edge,.26,mid+c.width/2+right/2,'#d8d9cb',roomGroup);else cube(right,.48,.12,mid+c.width/2+right/2,.26,edge,'#d8d9cb',roomGroup)}}
+import { flatMaterial, look } from './look';
+type Room = typeof data.rooms[number];
+function cube(w: number, h: number, d: number, x: number, y: number, z: number, color: string, parent: THREE.Object3D) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), flatMaterial(color));
+  mesh.position.set(x, y, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  parent.add(mesh);
+}
+export function drawRooms(roomGroup: THREE.Group, rooms: Room[]) {
+  roomGroup.clear();
+  const p = look.palette;
+  for (const room of rooms) {
+    const [rx, rz] = room.position, [w, d] = room.size;
+    const floor = p.floors[room.id] ?? room.floor;
+    const line = p.floorLines[room.id] ?? p.floorLine;
+    cube(w + .16, .16, d + .16, rx, -.10, rz, p.slab, roomGroup);
+    cube(w, .12, d, rx, 0, rz, floor, roomGroup);
+    for (let i = 0; i < 16; i++) cube(w, .008, .018, rx, .064, rz - d / 2 + i * .5, line, roomGroup);
+    if (room.walls.includes('north')) {
+      cube(w + .12, 2.35, .12, rx, 1.18, rz - d / 2, p.wall, roomGroup);
+      cube(w + .14, .06, .15, rx, 2.37, rz - d / 2, p.trim, roomGroup);
+    }
+    if (room.walls.includes('west')) {
+      cube(.12, 2.35, d, rx - w / 2, 1.18, rz, p.wallSide, roomGroup);
+      cube(.15, .06, d, rx - w / 2, 2.37, rz, p.trim, roomGroup);
+    }
+  }
+  // Shared low walls leave a clear two-unit passage between connected rooms.
+  for (const room of rooms) for (const c of room.connections) {
+    if (!rooms.some(r => r.id === c.to)) continue;
+    if (c.side !== 'east' && c.side !== 'south') continue;
+    const horizontal = c.side === 'east';
+    const edge = horizontal ? room.position[0] + room.size[0] / 2 : room.position[1] + room.size[1] / 2;
+    const mid = (horizontal ? room.position[1] : room.position[0]) + c.offset;
+    const half = (horizontal ? room.size[1] : room.size[0]) / 2;
+    const start = (horizontal ? room.position[1] : room.position[0]) - half;
+    const left = mid - c.width / 2 - start, right = start + half * 2 - (mid + c.width / 2);
+    if (left > 0) {
+      if (horizontal) cube(.12, .48, left, edge, .26, start + left / 2, p.lowWall, roomGroup);
+      else cube(left, .48, .12, start + left / 2, .26, edge, p.lowWall, roomGroup);
+    }
+    if (right > 0) {
+      if (horizontal) cube(.12, .48, right, edge, .26, mid + c.width / 2 + right / 2, p.lowWall, roomGroup);
+      else cube(right, .48, .12, mid + c.width / 2 + right / 2, .26, edge, p.lowWall, roomGroup);
+    }
+  }
 }
