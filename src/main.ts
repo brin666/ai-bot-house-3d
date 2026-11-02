@@ -1,22 +1,28 @@
 import { createEventFeedback } from './event-feedback';
 import { createBot, type BotState, type BotActivity } from './bot';
 import { startPurchase } from './purchase';
-import { drawRooms } from './room-renderer';
+import { drawRooms, worldBoundsForRooms } from './room-renderer';
 import { renderLayout } from './layout';
 import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { createPaperPass, syncPaperScale } from './paper'; import { createRoomDetails } from './details';
+import { createPaperPass, syncPaperScale } from './paper';
 import { flatMaterial, look } from './look';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import sceneData from './scene.json'; import {Store,catalog,type Item,type Kind} from './store'; import {furniture,disposeFurniture,interactionCandidates} from './furniture'; import { path,freeTarget,setActiveRooms,blocked,validPlacement,preservesConnectivity,canUnlockRoom,segmentClear} from './navigation'; import './style.css';
+import sceneData from './scene.json';
+import { Store, catalog, type Item, type Kind } from './store';
+import { furniture, disposeFurniture, interactionCandidates } from './furniture';
+import { path, freeTarget, setActiveRooms, setDecorBlocks, blocked, validPlacement, preservesConnectivity, canUnlockRoom, segmentClear } from './navigation';
+import { nextUnlockCandidate, rooms as allRooms } from './scene-types';
+import { buildRoomDecor } from './room-decor';
+import './style.css';
 import { botMotion, lerpAngle, smoothstep, BOT_BODY_CENTER_Y } from './bot-motion';
 import { BOT_RADIUS } from './bot-metrics';
 const app=document.querySelector<HTMLDivElement>('#app')!;
 renderLayout(app);
-const el=(id:string)=>document.getElementById(id)!;const syncActivity=()=>{el('live-activity').textContent=el('status').textContent};new MutationObserver(syncActivity).observe(el('status'),{childList:true,characterData:true,subtree:true});syncActivity(); const store=new Store(sceneData.furniture as Item[]);const nextRoom=()=>sceneData.rooms.find(room=>!store.rooms.includes(room.id)&&room.connections.some(connection=>store.rooms.includes(connection.to)));setActiveRooms(store.rooms); const scene=new THREE.Scene();scene.background=new THREE.Color(look.background);
+const el=(id:string)=>document.getElementById(id)!;const syncActivity=()=>{el('live-activity').textContent=el('status').textContent};new MutationObserver(syncActivity).observe(el('status'),{childList:true,characterData:true,subtree:true});syncActivity(); const store=new Store(sceneData.furniture as Item[]);const nextRoom=()=>nextUnlockCandidate(store.rooms);setActiveRooms(store.rooms); const scene=new THREE.Scene();scene.background=new THREE.Color(look.background);
 const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;el('canvas').appendChild(renderer.domElement);
-const houseCenter=()=>{const rooms=sceneData.rooms.filter(room=>store.rooms.includes(room.id));const minX=Math.min(...rooms.map(r=>r.position[0]-r.size[0]/2)),maxX=Math.max(...rooms.map(r=>r.position[0]+r.size[0]/2)),minZ=Math.min(...rooms.map(r=>r.position[1]-r.size[1]/2)),maxZ=Math.max(...rooms.map(r=>r.position[1]+r.size[1]/2));return new THREE.Vector3((minX+maxX)/2,1,(minZ+maxZ)/2)};
+const houseCenter=()=>{const b=worldBoundsForRooms(store.rooms);return new THREE.Vector3(b.cx,1,b.cz)};
 const initialCenter=houseCenter();const camera=new THREE.OrthographicCamera(-6,6,6,-6,.1,100);camera.position.copy(initialCenter).add(new THREE.Vector3(12,9,12));camera.lookAt(initialCenter);
 const controls=new OrbitControls(camera,renderer.domElement);controls.target.copy(initialCenter);controls.enablePan=false;controls.minZoom=.65;controls.maxZoom=2;controls.maxPolarAngle=Math.PI/2.2;controls.update();
 scene.add(new THREE.AmbientLight(look.light.ambient, look.light.ambientIntensity));scene.add(new THREE.HemisphereLight(look.light.hemiSky, look.light.hemiGround, look.light.hemi));const sun=new THREE.DirectionalLight(look.light.sun, look.light.sunIntensity);sun.position.set(7,10,5);sun.target.position.set(4,0,0);scene.add(sun.target);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-15;sun.shadow.camera.right=15;sun.shadow.camera.top=15;sun.shadow.camera.bottom=-15;sun.shadow.normalBias=.025;sun.shadow.bias=-.0002;scene.add(sun);
@@ -25,12 +31,11 @@ function syncComposerDepth(){for(const target of [composer.renderTarget1, compos
 const M=(c:string)=>flatMaterial(c);function cube(w:number,h:number,d:number,x:number,y:number,z:number,c:string,parent:THREE.Object3D=scene){const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),M(c));mesh.position.set(x,y,z);mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh}
 const activeRooms=()=>sceneData.rooms.filter(room=>store.rooms.includes(room.id));
 const roomGroup=new THREE.Group();scene.add(roomGroup);
-function renderRooms(){drawRooms(roomGroup,activeRooms())}
+const decorGroup=new THREE.Group();scene.add(decorGroup);
+function renderRooms(){drawRooms(roomGroup,store.rooms);const blocks=buildRoomDecor(store.rooms,decorGroup);setDecorBlocks(blocks)}
 renderRooms();
-// Original, geometric window and room details.
 cube(1.7,1.15,.06,.2,1.48,-3.89,look.palette.windowFrame);cube(1.54,.99,.07,.2,1.48,-3.82,look.palette.windowGlass);cube(.05,1,.08,.2,1.48,-3.75,look.palette.windowMullion);cube(1.55,.05,.08,.2,1.48,-3.75,look.palette.windowMullion);cube(1.85,.08,.2,.2,.91,-3.75,look.palette.sill);
-scene.add(createRoomDetails());
-const furnitureGroup=new THREE.Group();scene.add(furnitureGroup);function rebuild(){for(const item of furnitureGroup.children)disposeFurniture(item);furnitureGroup.clear();for(const item of store.items)furnitureGroup.add(furniture(item))}rebuild();
+const furnitureGroup=new THREE.Group();scene.add(furnitureGroup);function rebuild(){for(const item of furnitureGroup.children)disposeFurniture(item);furnitureGroup.clear();for(const item of store.items)furnitureGroup.add(furniture(item));renderRooms()}rebuild();
 const raycaster=new THREE.Raycaster();const pointer=new THREE.Vector2();let pointerStart:{x:number;y:number}|null=null;
 renderer.domElement.addEventListener('pointerdown',e=>{pointerStart={x:e.clientX,y:e.clientY}});
 let selectedItemId:string|null=null;function showItem(item:Item,focusClose=false){selectedItemId=item.id;el('detail-name').textContent=catalog[item.type].name;el('detail-price').textContent=item.price===undefined?`虚拟金币 ${catalog[item.type].price} · 初始家具`:`虚拟金币 ${item.price}`;el('item-details').hidden=false;if(focusClose)el('close-detail').focus()}
@@ -55,7 +60,7 @@ function renderShop(){el('shop').innerHTML=(Object.keys(catalog) as Kind[]).map(
 store.addEventListener('change',ui);renderShop();ui();
 el('gift-furniture').onclick=()=>{if(pending){logNotice('Bot 正在搬运，请稍等。');return}if(store.emit({type:'gift'}))purchase('plant')};
 el('relocate-furniture').onclick=()=>{if(pending){logNotice('Bot 正在搬运，请稍等。');return}const item=store.items.find(entry=>entry.id===selectedItemId);if(!item)return;const others=store.items.filter(entry=>entry.id!==item.id);let target:Item|null=null;for(const room of activeRooms()){if(target)break;for(let z=room.position[1]+room.size[1]/2-.75;z>=room.position[1]-room.size[1]/2+.75&&!target;z-=.5)for(let x=room.position[0]+room.size[0]/2-.75;x>=room.position[0]-room.size[0]/2+.75;x-=.5){const candidate={...item,roomId:room.id,x,z};if(Math.hypot(x-item.x,z-item.z)<.75&&room.id===item.roomId)continue;if(validPlacement(candidate,others)&&preservesConnectivity([bot.position.x,bot.position.z],[bot.position.x,bot.position.z],[...others,candidate])){target=candidate;break}}}if(!target){logNotice('暂时没有安全的空位。');return}if(!store.moveItem(item.id,target))return;waypoints=[];arrival=null;activity='';setState('Idle',2);rebuild();el('item-details').hidden=true;el('inspect-furniture').focus()};
-el('buy-room').onclick=()=>{if(pending){logNotice('Bot 正在搬运，请稍等。');return}const next=nextRoom();if(!next||store.coins<next.buildCost){logNotice('金币还不够，再攒一些吧。');return}if(!canUnlockRoom(next.id,[bot.position.x,bot.position.z],store.items)){logNotice('新房间的通道被挡住，请先查看并调整附近的家具。');return}if(!store.buyRoom(next.id,next.buildCost))return;setActiveRooms(store.rooms);renderRooms();resetHouseView();resize()};
+el('buy-room').onclick=()=>{if(pending){logNotice('Bot 正在搬运，请稍等。');return}const next=nextRoom();if(!next||store.coins<next.buildCost){logNotice('金币还不够，再攒一些吧。');return}if(!canUnlockRoom(next.id,[bot.position.x,bot.position.z],store.items)){logNotice('新房间的通道被家具挡住，请先调整附近的摆放。');return}if(!store.buyRoom(next.id,next.buildCost))return;setActiveRooms(store.rooms);renderRooms();resetHouseView();resize()};
 for(const b of document.querySelectorAll<HTMLButtonElement>('[data-activity]'))b.onclick=()=>{if(pending){logNotice('Bot 正在搬运，请稍等。');return}if(!visitFurniture(b.dataset.activity as 'bed'|'table'|'plant'))logNotice('暂时找不到去家具旁的路。')};
 const showFeedback=createEventFeedback(el('event-flash'));
 store.addEventListener('game',event=>showFeedback((event as CustomEvent).detail.type));
@@ -63,7 +68,7 @@ for(const b of document.querySelectorAll<HTMLButtonElement>('[data-event]'))b.on
 const ditherSlider=el('dither-strength') as HTMLInputElement;let ditherOn=true;ditherSlider.min='0';ditherSlider.max='1';ditherSlider.step='0.01';ditherSlider.value=String(look.dither.strength);const applyDither=()=>{dither.uniforms.uStrength.value=ditherOn?Number(ditherSlider.value):0;el('dither').textContent=`抖色：${ditherOn?'开启':'关闭'}`};ditherSlider.oninput=applyDither;el('dither').onclick=()=>{ditherOn=!ditherOn;applyDither()};applyDither();el('mode').onclick=()=>{mode=!mode;focusBot=false;el('live-focus').textContent='近看 Bot';document.body.classList.toggle('portrait',mode);el('mode').textContent=mode?'返回开发模式':'竖屏直播';controls.enabled=!mode;resetHouseView();resize()};
 el('live-focus').onclick=()=>{focusBot=!focusBot;el('live-focus').textContent=focusBot?'显示全屋':'近看 Bot';if(!focusBot){resetHouseView()}resize()};
 function resetHouseView(){const center=houseCenter();controls.target.copy(center);camera.position.copy(center).add(new THREE.Vector3(12,9,12));controls.update()}
-function fitView(aspect:number){camera.updateMatrixWorld();const right=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0),up=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,1);let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;for(const room of activeRooms())for(const dx of [-room.size[0]/2,room.size[0]/2])for(const dz of [-room.size[1]/2,room.size[1]/2])for(const y of [0,2.4]){const p=new THREE.Vector3(room.position[0]+dx,y,room.position[1]+dz).sub(controls.target);const x=p.dot(right),v=p.dot(up);minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,v);maxY=Math.max(maxY,v)}const fillX=mode?0.96:0.92,fillY=mode?0.82:0.9;return Math.max(6,(maxX-minX)/(fillX*aspect),(maxY-minY)/fillY)}
+function fitView(aspect:number){camera.updateMatrixWorld();const right=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0),up=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,1);const b=worldBoundsForRooms(store.rooms);let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;for(const dx of [b.minX,b.maxX])for(const dz of [b.minZ,b.maxZ])for(const y of [0,b.maxY]){const p=new THREE.Vector3(dx,y,dz).sub(controls.target);const x=p.dot(right),v=p.dot(up);minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,v);maxY=Math.max(maxY,v)}const fillX=mode?0.96:0.92,fillY=mode?0.82:0.9;return Math.max(8,(maxX-minX)/(fillX*aspect),(maxY-minY)/fillY)}
 function resize(){const container=el('canvas'),w=container.clientWidth,h=container.clientHeight;if(!w||!h)return;renderer.setSize(w,h);composer.setSize(w,h);syncComposerDepth();syncPaperScale(dither,renderer.getPixelRatio());const aspect=w/h;const view=mode&&focusBot?12:fitView(aspect);camera.left=-view*aspect/2;camera.right=view*aspect/2;camera.top=view/2;camera.bottom=-view/2;camera.updateProjectionMatrix()}window.addEventListener('resize',resize);new ResizeObserver(resize).observe(el('canvas'));resize();
 let last=performance.now();const gaze=new THREE.Vector3();const moveDir=new THREE.Vector2();function animate(now:number){requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.05);last=now;clock+=dt;timer-=dt;let gazeTarget:THREE.Vector3|null=null;
  if((state==='Move'||state==='Approach'||state==='Carry')&&waypoints.length){moveSpeed=Math.min(1,moveSpeed+botMotion.walk.accel*dt);const [x,z]=waypoints[0],dx=x-bot.position.x,dz=z-bot.position.z,dist=Math.hypot(dx,dz),step=botMotion.walk.speed*moveSpeed*dt;if(dist<step){bot.position.x=x;bot.position.z=z;waypoints.shift()}else{bot.position.x+=dx/dist*step;bot.position.z+=dz/dist*step;moveDir.set(dx/dist,dz/dist);bot.rotation.y=lerpAngle(bot.rotation.y,Math.atan2(dx,dz),1-Math.exp(-botMotion.walk.turnRate*dt))}gazeTarget=gaze.set(waypoints[0]?.[0]??x,BOT_BODY_CENTER_Y,waypoints[0]?.[1]??z)}
@@ -76,13 +81,18 @@ let last=performance.now();const gaze=new THREE.Vector3();const moveDir=new THRE
 (window as unknown as {__botHouseDebug?:Record<string,unknown>}).__botHouseDebug={
 sample:()=>({state,bot:{x:bot.position.x,y:bot.position.y,z:bot.position.z,ry:bot.rotation.y},carry:carry?{x:carry.position.x,y:carry.position.y,z:carry.position.z}:null,pickupSpot,pending:pending?{x:pending.x,z:pending.z}:null,placeFrom,waypoints:waypoints.slice(0,3),moveSpeed,botRadius:BOT_RADIUS}),
 setBotYaw:(y:number)=>{bot.rotation.y=y;controls.update()},
-focusCloseup:()=>{controls.target.set(bot.position.x,BOT_BODY_CENTER_Y*.55,bot.position.z);camera.position.set(bot.position.x+4.4,3.6,bot.position.z+4.4);controls.update();(window as unknown as {__botHouseDebug?:{faceCamera:()=>void}}).__botHouseDebug!.faceCamera()},
+lockBotAt:(x:number,z:number)=>{bot.position.set(x,0,z);waypoints.length=0;moveSpeed=0;setState('Idle',999);arrival=null;activity=''},
+focusCloseup:()=>{controls.target.set(bot.position.x,BOT_BODY_CENTER_Y*.55,bot.position.z);camera.position.set(bot.position.x+4.2,3.4,bot.position.z+4.2);controls.update();const container=el('canvas'),aspect=container.clientWidth/Math.max(1,container.clientHeight),view=7;camera.left=-view*aspect/2;camera.right=view*aspect/2;camera.top=view/2;camera.bottom=-view/2;camera.updateProjectionMatrix()},
 resetHouseView:()=>{resetHouseView()},
-faceCamera:()=>{const dx=camera.position.x-bot.position.x,dz=camera.position.z-bot.position.z;bot.rotation.y=Math.atan2(dx,dz);controls.update()},
-backToCamera:()=>{const dx=camera.position.x-bot.position.x,dz=camera.position.z-bot.position.z;bot.rotation.y=Math.atan2(dx,dz)+Math.PI;controls.update()},
+faceCamera:()=>{const dx=camera.position.x-bot.position.x,dz=camera.position.z-bot.position.z;bot.rotation.y=Math.atan2(dx,dz)+Math.PI;controls.update()},
+backToCamera:()=>{const dx=camera.position.x-bot.position.x,dz=camera.position.z-bot.position.z;bot.rotation.y=Math.atan2(dx,dz);controls.update()},
 setDitherStrength:(v:number)=>{dither.uniforms.uStrength.value=v;ditherOn=v>0;el('dither').textContent=`抖色：${ditherOn?'开启':'关闭'}`},
 setBotShells:(o: {showOutline?: boolean})=>{botView.setShells?.(o)},
 probeDecals:()=>botView.probeDecals?.(),
 botScreenDisc:()=>{const c=new THREE.Vector3(bot.position.x,BOT_BODY_CENTER_Y,bot.position.z);const top=c.clone();top.y+=BOT_RADIUS;const right=c.clone();right.x+=BOT_RADIUS;const s=new THREE.Vector3(),t=new THREE.Vector3(),r=new THREE.Vector3();s.copy(c).project(camera);t.copy(top).project(camera);r.copy(right).project(camera);const rect=renderer.domElement.getBoundingClientRect();const px=(v:THREE.Vector3)=>((v.x*.5+.5)*rect.width+rect.left);const py=(v:THREE.Vector3)=>((-v.y*.5+.5)*rect.height+rect.top);const cx=px(s),cy=py(s),rad=Math.max(Math.hypot(px(t)-cx,py(t)-cy),Math.hypot(px(r)-cx,py(r)-cy));return{cx,cy,rad,rect:{w:rect.width,h:rect.height}};},
+renderStats:()=>({calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,frameTimeMs:null as number|null}),
+benchRender:(frames=90)=>new Promise<{calls:number;triangles:number;frameTimeMs:number}>((resolve)=>{let i=0;let peakCalls=0;let peakTris=0;const t0=performance.now();const run=()=>{composer.render();peakCalls=Math.max(peakCalls,renderer.info.render.calls);peakTris=Math.max(peakTris,renderer.info.render.triangles);if(++i>=frames){resolve({calls:peakCalls,triangles:peakTris,frameTimeMs:(performance.now()-t0)/frames});return}requestAnimationFrame(run)};requestAnimationFrame(run)}),
+setSaveRooms:(ids:string[])=>{if(store.storageError)return false;store.rooms=[...ids];setActiveRooms(store.rooms);renderRooms();resetHouseView();resize();return true},
+countSceneMeshes:()=>{let n=0;scene.traverse((o)=>{if(o instanceof THREE.Mesh&&o.visible)n++});return n},
 };
 requestAnimationFrame(animate);

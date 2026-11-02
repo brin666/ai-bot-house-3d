@@ -2,91 +2,209 @@
   "rooms": [
     {
       "id": "room-1",
-      "position": [
-        0,
-        0
-      ],
-      "size": [
-        8,
-        8
-      ],
-      "walls": [
-        "north",
-        "west"
-      ],
+      "position": [0, 0],
+      "size": [8, 8],
+      "walls": ["north", "west"],
       "doorways": [],
       "connections": [
-        {
-          "to": "room-2",
-          "side": "east",
-          "offset": 0,
-          "width": 2
-        }
+        { "to": "room-2", "side": "east", "offset": 0, "width": 2 },
+        { "to": "room-6", "side": "south", "offset": 0, "width": 2 }
       ],
-      "floor": "#e8d4b4",
+      "floor": "#f6d35a",
       "buildCost": 0,
       "initial": true,
-      "label": "卧室书房"
+      "unlockOrder": 0,
+      "label": "卧室书房",
+      "kind": "indoor"
     },
     {
       "id": "room-2",
-      "position": [
-        8,
-        0
-      ],
-      "size": [
-        8,
-        8
-      ],
-      "walls": [
-        "north"
-      ],
-      "connections": [
-        {
-          "to": "room-1",
-          "side": "west",
-          "offset": 0,
-          "width": 2
-        },
-        {
-          "to": "room-3",
-          "side": "east",
-          "offset": 0,
-          "width": 2
-        }
-      ],
+      "position": [8, 0],
+      "size": [8, 8],
+      "walls": ["north"],
       "doorways": [],
-      "floor": "#d8e2d4",
+      "connections": [
+        { "to": "room-1", "side": "west", "offset": 0, "width": 2 },
+        { "to": "room-3", "side": "east", "offset": 0, "width": 2 },
+        { "to": "room-4", "side": "south", "offset": 0, "width": 2 },
+        { "to": "room-5", "side": "north", "offset": -2.5, "width": 2 }
+      ],
+      "floor": "#7ed9a4",
       "buildCost": 0,
       "initial": true,
-      "label": "生活区"
+      "unlockOrder": 0,
+      "label": "生活区",
+      "kind": "indoor"
     },
     {
       "id": "room-3",
-      "position": [
-        16,
-        0
-      ],
-      "size": [
-        8,
-        8
-      ],
-      "walls": [
-        "north"
-      ],
-      "connections": [
-        {
-          "to": "room-2",
-          "side": "west",
-          "offset": 0,
-          "width": 2
-        }
-      ],
+      "position": [16, 0],
+      "size": [8, 8],
+      "walls": ["north"],
       "doorways": [],
-      "floor": "#e7d8c5",
+      "connections": [
+        { "to": "room-2", "side": "west", "offset": 0, "width": 2 },
+        { "to": "room-8", "side": "south", "offset": 0, "width": 2 },
+        { "to": "room-9", "side": "north", "offset": 0, "width": 2 }
+      ],
+      "floor": "#f3b183",
+      "buildCost": 500,
+      "initial": true,
+      "unlockOrder": 0,
+      "label": "厨房餐厅",
+      "kind": "indoor"
+    },
+    {
+      "id": "room-4",
+      "position": [8, 8],
+      "size": [8, 8],
+      "walls": ["north", "west"],
+      "doorways": [],
+      "connections": [
+        { "to": "room-2", "side": "north", "offset": 0, "width": 2 },
+        { "to": "room-6", "side": "west", "offset": 0, "width": 2 },
+        { "to": "room-9", "side": "east", "offset": 0, "width": 2 },
+        { "to": "room-10", "side": "south", "offset": 0, "width": 2 }
+      ],
+      "floor": "#c8e8f0",
       "buildCost": 500,
       "initial": false,
-      "label": "新房间"
+      "unlockOrder": 2,
+      "label": "音乐角",
+      "kind": "indoor"
+    },
+    {
+      "id": "room-5",
+      "position": [8, -8],
+      "size": [8, 8],
+      "walls": ["south", "west"],
+      "doorways": [],
+      "connections": [
+        { "to": "room-2", "side": "south", "offset": -2.5, "width": 2 },
+        { "to": "room-7", "side": "west", "offset": 0, "width": 2 },
+        { "to": "room-8", "side": "east", "offset": 0, "width": 2 }
+      ],
+      "floor": "#f7a8c8",
+      "buildCost": 700,
+      "initial": false,
+      "unlockOrder": 3,
+      "label": "游戏室",
+      "kind": "indoor"
+    },
+    {
+      "id": "room-6",
+      "position": [0, 8],
+      "size": [8, 8],
+      "walls": ["north", "west"],
+      "doorways": [],
+      "connections": [
+        { "to": "room-1", "side": "north", "offset": 0, "width": 2 },
+        { "to": "room-4", "side": "east", "offset": 0, "width": 2 }
+      ],
+      "floor": "#d4c4f0",
+      "buildCost": 900,
+      "initial": false,
+      "unlockOrder": 4,
+      "label": "办公室",
+      "kind": "indoor"
+    },
+    {
+      "id": "room-7",
+      "position": [0, -8],
+      "size": [8, 8],
+      "walls": ["south", "west"],
+      "doorways": [],
+      "connections": [{ "to": "room-5", "side": "east", "offset": 0, "width": 2 }],
+      "floor": "#b8e8e0",
+      "buildCost": 1100,
+      "initial": false,
+      "unlockOrder": 5,
+      "label": "浴室",
+      "kind": "indoor"
+    },
+    {
+      "id": "room-8",
+      "position": [16, -8],
+      "size": [8, 8],
+      "walls": ["south", "east"],
+      "doorways": [],
+      "connections": [
+        { "to": "room-3", "side": "north", "offset": 0, "width": 2 },
+        { "to": "room-5", "side": "west", "offset": 0, "width": 2 }
+      ],
+      "floor": "#e8e4dc",
+      "buildCost": 1300,
+      "initial": false,
+      "unlockOrder": 6,
+      "label": "车库",
+      "kind": "indoor"
+    },
+    {
+      "id": "room-9",
+      "position": [16, 8],
+      "size": [8, 8],
+      "walls": ["north", "east"],
+      "doorways": [],
+      "connections": [
+        { "to": "room-3", "side": "south", "offset": 0, "width": 2 },
+        { "to": "room-4", "side": "west", "offset": 0, "width": 2 }
+      ],
+      "floor": "#f0d8b8",
+      "buildCost": 1500,
+      "initial": false,
+      "unlockOrder": 7,
+      "label": "洗衣间",
+      "kind": "indoor"
+    },
+    {
+      "id": "room-10",
+      "position": [8, 16],
+      "size": [8, 8],
+      "walls": ["north", "west"],
+      "doorways": [],
+      "connections": [
+        { "to": "room-4", "side": "north", "offset": 0, "width": 2 },
+        { "to": "yard-main", "side": "south", "offset": 0, "width": 2 }
+      ],
+      "floor": "#ffe8c8",
+      "buildCost": 1700,
+      "initial": false,
+      "unlockOrder": 8,
+      "label": "门厅",
+      "kind": "indoor"
+    },
+    {
+      "id": "yard-main",
+      "position": [8, 28],
+      "size": [32, 16],
+      "walls": [],
+      "doorways": [],
+      "connections": [
+        { "to": "room-10", "side": "north", "offset": 0, "width": 2 },
+        { "to": "pool-main", "side": "east", "offset": 0, "width": 2 }
+      ],
+      "floor": "#6ec86e",
+      "buildCost": 2200,
+      "initial": false,
+      "unlockOrder": 9,
+      "label": "草坪",
+      "kind": "yard",
+      "walkable": true
+    },
+    {
+      "id": "pool-main",
+      "position": [16, 28],
+      "size": [8, 4],
+      "walls": [],
+      "doorways": [],
+      "connections": [{ "to": "yard-main", "side": "west", "offset": 0, "width": 2 }],
+      "floor": "#3aa8d8",
+      "buildCost": 900,
+      "initial": false,
+      "unlockOrder": 10,
+      "label": "泳池",
+      "kind": "pool",
+      "walkable": false
     }
   ],
   "furniture": [
