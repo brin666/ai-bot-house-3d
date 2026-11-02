@@ -1,0 +1,376 @@
+{
+  "verification": "Headless Chrome + SwiftShader; pixel counts from botScreenDisc bounding circle.",
+  "diagnostics": [
+    {
+      "phase": "ditherOff",
+      "eyeBrightPixels": 6,
+      "eyeClusterLeft": 3,
+      "eyeClusterRight": 3,
+      "probe": {
+        "radius": 0.52,
+        "botRy": 0.7853981633974482,
+        "toCamWorld": {
+          "x": 0.6504331555071741,
+          "y": 0.39226702695225396,
+          "z": 0.6504331555071742
+        },
+        "toCamLocal": {
+          "x": 0,
+          "y": 0.3732311149166724,
+          "z": 0.9277383978568838
+        },
+        "eyes": [
+          {
+            "i": 0,
+            "visible": false,
+            "local": {
+              "x": -0.20594815753326795,
+              "y": 0.26561224648574794,
+              "z": -0.41568002661355596
+            },
+            "dist": 0.5345600000000001
+          },
+          {
+            "i": 1,
+            "visible": false,
+            "local": {
+              "x": 0.20594815753326795,
+              "y": 0.26561224648574794,
+              "z": -0.41568002661355596
+            },
+            "dist": 0.5345600000000001
+          }
+        ],
+        "glints": [
+          {
+            "i": 0,
+            "visible": true,
+            "local": {
+              "x": -0.20079263096604485,
+              "y": 0.2010433423898778,
+              "z": 0.42928188155388075
+            },
+            "dist": 0.5148
+          },
+          {
+            "i": 1,
+            "visible": true,
+            "local": {
+              "x": 0.20083287345171424,
+              "y": 0.1991317074552512,
+              "z": 0.43015318204923697
+            },
+            "dist": 0.5148
+          }
+        ]
+      }
+    },
+    {
+      "phase": "noOutline",
+      "eyeBrightPixels": 3,
+      "eyeClusterLeft": 2,
+      "eyeClusterRight": 1,
+      "probe": {
+        "radius": 0.52,
+        "botRy": 0.7853981633974482,
+        "toCamWorld": {
+          "x": 0.6371776955211728,
+          "y": 0.4336002406141575,
+          "z": 0.6371776955211729
+        },
+        "toCamLocal": {
+          "x": 0,
+          "y": 0.44245352568987034,
+          "z": 0.8967914348412361
+        },
+        "eyes": [
+          {
+            "i": 0,
+            "visible": false,
+            "local": {
+              "x": -0.20594815753326795,
+              "y": 0.26561224648574794,
+              "z": -0.41568002661355596
+            },
+            "dist": 0.5345600000000001
+          },
+          {
+            "i": 1,
+            "visible": false,
+            "local": {
+              "x": 0.20594815753326795,
+              "y": 0.26561224648574794,
+              "z": -0.41568002661355596
+            },
+            "dist": 0.5345600000000001
+          }
+        ],
+        "glints": [
+          {
+            "i": 0,
+            "visible": true,
+            "local": {
+              "x": -0.20079263096604488,
+              "y": 0.2329923680192003,
+              "z": 0.4128146264299986
+            },
+            "dist": 0.5148000000000001
+          },
+          {
+            "i": 1,
+            "visible": true,
+            "local": {
+              "x": 0.20083287345171427,
+              "y": 0.2311522475275175,
+              "z": 0.41382826800993794
+            },
+            "dist": 0.5148
+          }
+        ]
+      }
+    },
+    {
+      "phase": "ditherOn",
+      "probe": {
+        "radius": 0.52,
+        "botRy": -1.980890940328989,
+        "toCamWorld": {
+          "x": 0.6397836931262707,
+          "y": 0.41238776959915907,
+          "z": 0.6485469555049509
+        },
+        "toCamLocal": {
+          "x": 0.37070904947878186,
+          "y": 0.38474570749458414,
+          "z": -0.8453079564271413
+        },
+        "eyes": [
+          {
+            "i": 0,
+            "visible": true,
+            "local": {
+              "x": -0.2084216778617885,
+              "y": 0.26544786297391365,
+              "z": -0.41455063603842085
+            },
+            "dist": 0.53456
+          },
+          {
+            "i": 1,
+            "visible": true,
+            "local": {
+              "x": 0.2035511040891515,
+              "y": 0.26544786297391365,
+              "z": -0.4169637558189798
+            },
+            "dist": 0.53456
+          }
+        ],
+        "glints": [
+          {
+            "i": 0,
+            "visible": true,
+            "local": {
+              "x": 0.35527909458709395,
+              "y": 0.20636916535884403,
+              "z": -0.3101734555671535
+            },
+            "dist": 0.5148000000000001
+          },
+          {
+            "i": 1,
+            "visible": true,
+            "local": {
+              "x": -0.012171755218272623,
+              "y": 0.20446851965870383,
+              "z": -0.47229600129948673
+            },
+            "dist": 0.5148000000000001
+          }
+        ]
+      }
+    }
+  ],
+  "front": {
+    "eyeBrightPixels": 78,
+    "eyeClusterLeft": 39,
+    "eyeClusterRight": 39,
+    "eyeClusterSizes": [
+      39,
+      39
+    ],
+    "eyeAcceptance": true,
+    "navyRingPixels": 120,
+    "navyRingOk": true,
+    "probe": {
+      "radius": 0.52,
+      "botRy": -2.3514653889851296,
+      "toCamWorld": {
+        "x": 0.6486261608116203,
+        "y": 0.3835974073239694,
+        "z": 0.6573713810359461
+      },
+      "toCamLocal": {
+        "x": 0.04032584727511591,
+        "y": 0.3816177661666198,
+        "z": -0.9234401478101022
+      },
+      "eyes": [
+        {
+          "i": 0,
+          "visible": true,
+          "local": {
+            "x": -0.20523451096263018,
+            "y": 0.26542866925895814,
+            "z": -0.41614998575675655
+          },
+          "dist": 0.53456
+        },
+        {
+          "i": 1,
+          "visible": true,
+          "local": {
+            "x": 0.20675439926616115,
+            "y": 0.2654286692589582,
+            "z": -0.41539695896757306
+          },
+          "dist": 0.5345600000000001
+        }
+      ],
+      "glints": [
+        {
+          "i": 0,
+          "visible": true,
+          "local": {
+            "x": 0.21924977341640817,
+            "y": 0.20492284022148363,
+            "z": -0.41827647126322326
+          },
+          "dist": 0.5148
+        },
+        {
+          "i": 1,
+          "visible": true,
+          "local": {
+            "x": -0.18195456251030684,
+            "y": 0.20301917451680068,
+            "z": -0.4366861481203631
+          },
+          "dist": 0.5148
+        }
+      ]
+    }
+  },
+  "back": {
+    "glintLeft": 31,
+    "glintRight": 33,
+    "glintClusterSizes": [
+      33,
+      30
+    ],
+    "glintsAcceptance": true,
+    "eyeAcceptanceOnBack": false,
+    "eyesOnBackOk": false,
+    "probe": {
+      "radius": 0.52,
+      "botRy": 3.896176838250707,
+      "toCamWorld": {
+        "x": 0.6632203348781636,
+        "y": 0.33194926296204086,
+        "z": 0.6707819871038985
+      },
+      "toCamLocal": {
+        "x": 0.0021479577206509953,
+        "y": 0.3327885373642423,
+        "z": -0.942999032701836
+      },
+      "eyes": [
+        {
+          "i": 0,
+          "visible": true,
+          "local": {
+            "x": -0.20499887473927672,
+            "y": 0.26543387941187513,
+            "z": -0.41626279033321306
+          },
+          "dist": 0.53456
+        },
+        {
+          "i": 1,
+          "visible": true,
+          "local": {
+            "x": 0.20698689994368033,
+            "y": 0.26543387941187524,
+            "z": -0.41527782569271277
+          },
+          "dist": 0.5345600000000001
+        }
+      ],
+      "glints": [
+        {
+          "i": 0,
+          "visible": true,
+          "local": {
+            "x": 0.2017888002087144,
+            "y": 0.18230332678935196,
+            "z": -0.43711076073675237
+          },
+          "dist": 0.5148000000000001
+        },
+        {
+          "i": 1,
+          "visible": true,
+          "local": {
+            "x": -0.19983386772198222,
+            "y": 0.18035582305099954,
+            "z": -0.4388134482930872
+          },
+          "dist": 0.5148000000000001
+        }
+      ]
+    }
+  },
+  "allShots": [
+    {
+      "shot": "front_neutral",
+      "eyeBrightPixels": 78,
+      "eyeClusterLeft": 39,
+      "eyeClusterRight": 39,
+      "glintLeft": 39,
+      "glintRight": 39
+    },
+    {
+      "shot": "back_glints",
+      "eyeBrightPixels": 64,
+      "eyeClusterLeft": 31,
+      "eyeClusterRight": 33,
+      "glintLeft": 31,
+      "glintRight": 33
+    },
+    {
+      "shot": "expr_happy",
+      "eyeBrightPixels": 0,
+      "eyeClusterLeft": 0,
+      "eyeClusterRight": 0,
+      "glintLeft": 0,
+      "glintRight": 0
+    },
+    {
+      "shot": "expr_sleepy",
+      "eyeBrightPixels": 0,
+      "eyeClusterLeft": 0,
+      "eyeClusterRight": 0,
+      "glintLeft": 1,
+      "glintRight": 0
+    },
+    {
+      "shot": "expr_blink_mid",
+      "eyeBrightPixels": 68,
+      "eyeClusterLeft": 33,
+      "eyeClusterRight": 35,
+      "glintLeft": 33,
+      "glintRight": 35
+    }
+  ],
+  "rootCause": "Runtime: opaque sheen shell (removed) wrote depth over face decals; wrong forward axis (+Z vs Three.js −Z) broke facing tests; eye planes were edge-on until camera billboarding. Dither OFF vs ON and outline OFF runs in diagnostics confirm decals are mesh/depth issues, not paper strength alone."
+}

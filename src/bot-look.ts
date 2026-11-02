@@ -17,25 +17,20 @@ export const BOT_PICKUP_STANDOFF = BOT_RADIUS + 0.16;
 export const BOT_PLACE_CLEAR_RADIUS = BOT_RADIUS + 0.22;
 
 export const botLook = {
-  body: '#101820',
-  bodySheen: '#1a2433',
-  outline: '#163248',
-  outlineScale: 1.102,
-  eye: '#fffaf4',
+  body: '#0f141c',
+  outline: '#4a7aa8',
+  outlineScale: 1.092,
+  eye: '#ffffff',
   highlight: '#ffffff',
   glint: {
-    size: 0.065,
-    viewUp: 0.22,
-    viewSide: 0.38,
-    surfaceInset: 0.018,
+    size: 0.095,
+    surfaceInset: 0.01,
   },
   eyes: {
-    radius: 0.042,
-    length: 0.13,
-    /** Radians above forward (+Z) on the front face. */
-    pitch: 0.24,
-    azimuthSpread: 0.34,
-    surfaceInset: 0.078,
+    radius: 0.104,
+    length: 0.285,
+    pitch: 0.52,
+    azimuthSpread: 0.46,
     gazeSlide: 0.08,
     blinkMin: 2.4,
     blinkMax: 6.8,
@@ -102,7 +97,7 @@ export function botFaceNormal(azimuthFromForward: number, pitchFromForward: numb
   const sp = Math.sin(pitchFromForward);
   const sa = Math.sin(azimuthFromForward);
   const ca = Math.cos(azimuthFromForward);
-  return new THREE.Vector3(sa * cp, sp, ca * cp).normalize();
+  return new THREE.Vector3(sa * cp, sp, -ca * cp).normalize();
 }
 
 export function botFacePoint(azimuthFromForward: number, pitchFromForward: number, radius = BOT_RADIUS) {
