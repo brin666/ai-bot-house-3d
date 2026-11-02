@@ -1,0 +1,3 @@
+<!doctype html><meta charset="utf-8"><title>Save migration verification</title><output id="result">waiting</output><script type="module">
+import {Store} from '/src/store.ts';const store=new Store([]);store.emit({type:'like'});const saved=JSON.parse(localStorage.getItem('bot-house-v1'));document.querySelector('#result').textContent=JSON.stringify({coins:store.coins,rooms:store.rooms,items:store.items.map(x=>x.id),savedVersion:saved.version,pending:saved.pending});
+</script>

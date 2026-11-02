@@ -1,0 +1,21 @@
+<!doctype html><meta charset="utf-8"><link rel="icon" href="data:,"><title>Reload during delivery</title>
+<output id="result">waiting</output><iframe id="app" src="/" width="1000" height="700"></iframe>
+<script>
+const frame=document.querySelector('#app'),out=document.querySelector('#result');let phase='start',before;
+frame.addEventListener('load',()=>{
+ if(phase==='reload'||phase==='reload-again'){
+  const doc=frame.contentDocument,optionCount=doc.querySelectorAll('#owned-select option').length;
+  const saved=JSON.parse(localStorage.getItem('bot-house-v1'));
+  if(phase==='reload'){phase='reload-again';frame.contentWindow.location.reload();return}
+  out.textContent=JSON.stringify({reloadedTwice:true,interruptedWhileCarrying:before.pending!==null,chargedOnce:before.coins===200&&saved.coins===200,restoredExactlyOnce:optionCount===6,storedFurniture:saved.items.length,pendingStillRecorded:!!saved.pending});return;
+ }
+ setTimeout(()=>{
+  if(localStorage.getItem('bot-house-v1')!==null){out.textContent='Skipped: use a fresh browser profile to protect existing saves.';return}
+  frame.contentDocument.querySelector('[data-kind=plant]').click();const deadline=Date.now()+55000;
+  const poll=setInterval(()=>{const status=frame.contentDocument.querySelector('#status').textContent;
+   if(status==='BOT 正在搬运包裹'){clearInterval(poll);before=JSON.parse(localStorage.getItem('bot-house-v1'));phase='reload';frame.contentWindow.location.reload()}
+   else if(Date.now()>deadline){clearInterval(poll);out.textContent=JSON.stringify({timeout:true,lastStatus:status})}
+  },100);
+ },700);
+});
+</script>

@@ -1,0 +1,21 @@
+<!doctype html><meta charset="utf-8"><link rel="icon" href="data:,"><title>Gift delivery verification</title>
+<output id="result">waiting</output><iframe id="app" src="/" width="1000" height="700"></iframe>
+<script>
+const frame=document.querySelector('#app'),out=document.querySelector('#result');
+let phase='start',seen=new Set(),deadline;
+frame.addEventListener('load',()=>{
+ if(phase==='reload'){
+  const saved=JSON.parse(localStorage.getItem('bot-house-v1'));
+  out.textContent=JSON.stringify({reloaded:true,coins:saved.coins,plants:saved.items.filter(x=>x.type==='plant').length,pending:saved.pending,seen:[...seen],expectedBalance:saved.coins===250,oneAddedPlant:saved.items.filter(x=>x.type==='plant').length===2,delivered:seen.has('BOT 正在欣赏新家具')});return;
+ }
+ setTimeout(()=>{
+  if(localStorage.getItem('bot-house-v1')!==null){out.textContent='Skipped: use a fresh browser profile to protect existing saves.';return}
+  frame.contentDocument.querySelector('#gift-furniture').click();deadline=Date.now()+55000;
+  const poll=setInterval(()=>{
+   const status=frame.contentDocument.querySelector('#status').textContent;seen.add(status);
+   if(status==='BOT 正在欣赏新家具'){clearInterval(poll);phase='reload';frame.contentWindow.location.reload()}
+   else if(Date.now()>deadline){clearInterval(poll);out.textContent=JSON.stringify({timeout:true,seen:[...seen]})}
+  },100);
+ },700);
+});
+</script>

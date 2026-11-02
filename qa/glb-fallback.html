@@ -1,0 +1,8 @@
+<!doctype html><meta charset="utf-8"><title>GLB loader verification</title><output id="result">waiting</output><script type="module">
+import {furniture} from '/src/furniture.ts';import {catalog} from '/src/store.ts';
+const item={id:'fixture',type:'lamp',roomId:'room-1',x:0,z:0,rotation:0,purchased:true};
+const valid=furniture(item);await new Promise(r=>setTimeout(r,700));const loaded=valid.children.length===1&&valid.children[0].type==='Group';
+catalog.lamp.model.url='models/not-found.glb';const fallback=furniture(item);await new Promise(r=>setTimeout(r,700));const kept=fallback.children.length===4;
+document.querySelector('#result').textContent=JSON.stringify({loaded,kept,footprint:catalog.lamp.size,interaction:catalog.lamp.interaction});
+</script>
+

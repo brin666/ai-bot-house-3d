@@ -1,0 +1,15 @@
+<!doctype html><meta charset="utf-8"><link rel="icon" href="data:,"><title>Room purchase verification</title>
+<output id="result">waiting</output><iframe id="app" src="/" width="1000" height="700"></iframe>
+<script>
+const frame=document.querySelector('#app'),out=document.querySelector('#result');let phase='start',before;
+frame.addEventListener('load',()=>setTimeout(()=>{
+ const doc=frame.contentDocument;
+ if(phase==='reload'){
+  const saved=JSON.parse(localStorage.getItem('bot-house-v1'));
+  out.textContent=JSON.stringify({balanceBefore:before.coins,balanceAfter:saved.coins,roomPersisted:saved.rooms.includes('room-3'),oneCharge:before.coins===500&&saved.coins===0,goalAfter:doc.querySelector('#room-goal').textContent,roomCount:doc.querySelector('.stage-label').textContent});return;
+ }
+ if(localStorage.getItem('bot-house-v1')!==null){out.textContent='Skipped: use a fresh browser profile to protect existing saves.';return}
+ for(let i=0;i<5;i++)doc.querySelector('[data-event=gift]').click();
+ before=JSON.parse(localStorage.getItem('bot-house-v1'));doc.querySelector('#buy-room').click();phase='reload';frame.contentWindow.location.reload();
+},700));
+</script>

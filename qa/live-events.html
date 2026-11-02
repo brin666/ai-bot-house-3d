@@ -1,0 +1,13 @@
+<!doctype html><meta charset="utf-8"><link rel="icon" href="data:,"><title>Live event queue verification</title>
+<output id="result">waiting</output><iframe id="app" src="/" width="390" height="844"></iframe>
+<script>
+const frame=document.querySelector('#app'),out=document.querySelector('#result');
+frame.addEventListener('load',()=>setTimeout(()=>{
+ if(localStorage.getItem('bot-house-v1')!==null){out.textContent='Skipped: use a fresh browser profile to protect existing saves.';return}
+ const doc=frame.contentDocument,flash=doc.querySelector('#event-flash'),seen=[];
+ new MutationObserver(()=>{if(!flash.hidden&&seen.at(-1)!==flash.textContent)seen.push(flash.textContent)}).observe(flash,{attributes:true,childList:true,subtree:true});
+ doc.querySelector('#mode').click();
+ for(const type of ['like','follow','gift','like','like'])doc.querySelector(`[data-event=${type}]`).click();
+ setTimeout(()=>{const save=JSON.parse(localStorage.getItem('bot-house-v1'));out.textContent=JSON.stringify({balance:save.coins,balanceCorrect:save.coins===330,portrait:doc.body.classList.contains('portrait'),seen,likeShown:seen.includes('♡ 点赞'),followShown:seen.includes('✦ 谢谢关注'),giftShown:seen.includes('◇ 收到礼物'),likesAggregated:seen.includes('♡ 点赞 ×2'),finished:flash.hidden})},8000);
+},700));
+</script>

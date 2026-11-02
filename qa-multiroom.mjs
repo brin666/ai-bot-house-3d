@@ -1,0 +1,1 @@
+const task=await taskSpace("bot-house-multi-20261102");const page=task.page("p1");await page.goto("http://127.0.0.1:5173/");console.log("space",task.spaceId);console.log(await page.snapshot());console.log(await page.screenshot({path:"D:/daily/ai-bot-house-3d/multi-preview.png"}));

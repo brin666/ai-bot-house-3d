@@ -1,0 +1,3 @@
+<!doctype html><meta charset="utf-8"><title>Future doorway verification</title><output id="result">waiting</output><script type="module">
+import data from '/src/scene.json';import {setActiveRooms,validPlacement,canUnlockRoom,path} from '/src/navigation.ts';const base=data.furniture;setActiveRooms(['room-1','room-2']);const legacy={id:'legacy',type:'chair',roomId:'room-2',x:11,z:0,rotation:0,purchased:true};const result={futureDoorReserved:!validPlacement(legacy,base),unblockedExpansion:canUnlockRoom('room-3',[0,2],base),blockedExpansionRefused:!canUnlockRoom('room-3',[0,2],[...base,legacy]),hypotheticalCheckDidNotUnlock:path(0,2,16,0,base).length===0};document.querySelector('#result').textContent=JSON.stringify(result);
+</script>

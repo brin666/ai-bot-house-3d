@@ -1,0 +1,1 @@
+const task=await taskSpace("bot-house-furniture-check-20261102");const page=task.page("p1");await page.cdp("Emulation.setDeviceMetricsOverride",{width:1280,height:720,deviceScaleFactor:1,mobile:false});await page.goto("http://127.0.0.1:5173/");await page.mouse.click(548,417,{label:"查看床的详情"});console.log(await page.snapshot());await task.finish({keep:[]});

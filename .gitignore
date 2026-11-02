@@ -1,0 +1,8 @@
+﻿node_modules/
+dist/
+qa/recording/profile/
+qa/activity-recording/frames/
+qa/recording/frames/
+*.log
+.DS_Store
+Thumbs.db

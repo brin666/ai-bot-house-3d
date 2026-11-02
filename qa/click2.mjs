@@ -1,0 +1,1 @@
+const task=await taskSpace("bot-house-furniture-check-2");const page=task.page("p1");await page.cdp("Emulation.setDeviceMetricsOverride",{width:1280,height:720,deviceScaleFactor:1,mobile:false});await page.goto("http://127.0.0.1:5173/");console.log("space",task.spaceId);console.log(await page.screenshot({path:"D:/daily/ai-bot-house-3d/qa/clickscreen.png"}));

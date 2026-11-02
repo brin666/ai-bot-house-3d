@@ -1,0 +1,1 @@
+const task=await taskSpace(7);const page=task.page("p1");await page.click('#close-detail');await page.mouse.click(840,376,{label:"打开家具详情"});console.log(await page.evaluate(()=>({visible:!document.querySelector('#item-details').hidden,name:document.querySelector('#detail-name').textContent,price:document.querySelector('#detail-price').textContent})));await task.finish({keep:[]});

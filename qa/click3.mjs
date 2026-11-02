@@ -1,0 +1,1 @@
+const task=await taskSpace(5);const page=task.page("p1");await page.mouse.click(520,320,{label:"查看床的详情"});console.log(await page.evaluate(()=>({hidden:document.querySelector('#item-details').hidden,name:document.querySelector('#detail-name').textContent,price:document.querySelector('#detail-price').textContent})));await task.finish({keep:[]});
