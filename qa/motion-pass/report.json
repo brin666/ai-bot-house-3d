@@ -1,0 +1,19 @@
+{
+  "verification": "Headless Chrome with software WebGL at 1280×800. Not a phone or livestream device.",
+  "runtime_confirmed": {
+    "pickup_bot_stands_off_parcel": "after_clipping_metrics.json liftMinPickupSep >= 0.5 during Lift",
+    "place_parcel_stays_high_until_sideways_clear": "placeMinCarryYWhileNearBot stays at carry hold (~1.02) while carryBotSep < 0.55",
+    "floor_and_rug_clearance": "floorClearanceMin and rugClearanceMin from sampled bot bottom vs FLOOR_SURFACE_Y / RUG_SURFACE_Y"
+  },
+  "code_reasoning_only": {
+    "pickup_trim_path_end": "delivery.ts stops one cell short of pickup via trimPathEnd",
+    "place_split_easing": "horizontal smoothstep completes before vertical drop in main.ts Place animation",
+    "off_grid_segment": "segmentClear + snapBotToGrid before following first waypoint",
+    "diagonal_paths": "8-neighbour BFS with corner-cut checks in navigation.ts",
+    "activity_badge_depth": "badge planes use depthTest with polygon offset instead of renderOrder 1000 overlay"
+  },
+  "not_observed_runtime": {
+    "jump_vs_lamp_collision": "Jump peak (~0.8 world Y) stays below lamp shade (~0.98); no mesh intersection was logged in the gift/jump samples",
+    "interrupted_walk_off_grid": "No dedicated interrupt test; snap/segment guards added preemptively"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "liftMinPickupSep": 0.5,
+  "placeMinCarryBotSep": 0,
+  "placeMinCarryYWhileNearBot": 1.02,
+  "floorClearanceMin": 0.03500000000000003,
+  "rugClearanceMin": 0.0010000000000000286
+}
