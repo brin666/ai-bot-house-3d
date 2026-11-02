@@ -37,8 +37,8 @@ export const botMotion = {
     landSquash: 0.88,
   },
   idle: {
-    bob: 0.012,
-    bobHz: 1.6,
+    bob: 0.015,
+    bobHz: 2.4,
   },
   carry: {
     bob: 0.04,

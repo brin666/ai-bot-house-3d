@@ -6,6 +6,9 @@ import {
   BOT_BODY_CENTER_Y,
   botFaceNormal,
   createBotShadowTexture,
+  createEyeCapsuleGeometry,
+  createEyeArcGeometry,
+  createEyeLineGeometry,
 } from './bot-look';
 import { botMotion, jumpOffset, smoothstep } from './bot-motion';
 
@@ -31,7 +34,8 @@ const _yAxis = new THREE.Vector3(0, 1, 0);
 const _centerWorld = new THREE.Vector3();
 const _toCamWorld = new THREE.Vector3();
 const _normalWorld = new THREE.Vector3();
-const _pivotQ = new THREE.Quaternion();
+const _bodyForward = new THREE.Vector3();
+const _eyeNormalWorld = new THREE.Vector3();
 
 export function createBot() {
   const root = new THREE.Group();
@@ -70,32 +74,39 @@ export function createBot() {
     bodyPivot.add(glint);
   }
 
-  const eyeMat = new THREE.MeshBasicMaterial({
-    color: botLook.eye,
-    toneMapped: false,
-    depthTest: false,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-  });
+  const eyeOpenH = BOT_RADIUS * botLook.eyes.openHeight;
+  const eyeW = BOT_RADIUS * botLook.eyes.width;
+  const eyeCapsuleGeo = createEyeCapsuleGeometry(eyeOpenH, eyeW);
+  const eyeArcGeo = createEyeArcGeometry(eyeW);
+  const eyeLineGeo = createEyeLineGeometry(eyeW);
   const eyes: EyeMesh[] = [];
+  const eyeMats: THREE.MeshBasicMaterial[] = [];
   const e = botLook.eyes;
   for (const side of [-1, 1]) {
-    const plane = new THREE.Mesh(
-      new THREE.PlaneGeometry(e.radius * 2.15, e.length, 1, 1),
-      eyeMat,
-    );
+    const mat = new THREE.MeshBasicMaterial({
+      color: botLook.eye,
+      toneMapped: false,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 1,
+    });
+    eyeMats.push(mat);
+    const plane = new THREE.Mesh(eyeCapsuleGeo, mat);
     plane.renderOrder = 35;
     plane.userData.side = side;
-    plane.userData.azimuth = side * e.azimuthSpread;
+    plane.userData.azimuth = side * Math.asin(Math.min(1, e.centerSpread));
+    plane.userData.baseGeo = 'capsule';
     eyes.push(plane as EyeMesh);
     bodyPivot.add(plane);
   }
 
-  let blinkAt = 2.8;
+  let blinkAt = 2.2;
   let blinkCloseUntil = 0;
-  let blinkStage = 0;
   let glanceAt = 0;
   const gazeOffset = new THREE.Vector2();
+  let faceFade = 1;
   layoutEyes(eyes, 1, new THREE.Vector3(0, 0.35, -0.92).normalize(), new THREE.Vector3(0, 0.35, 5));
 
   const book = new THREE.Group();
@@ -191,16 +202,32 @@ export function createBot() {
     const surf = BOT_RADIUS * 1.028;
     const camLocal = bodyPivot.worldToLocal(cameraWorld.clone());
     bodyPivot.updateWorldMatrix(true, true);
-    for (const cap of list) {
+    root.updateWorldMatrix(true, true);
+    _bodyForward.set(0, 0, -1).transformDirection(root.matrixWorld).normalize();
+    const faceDot = -_bodyForward.dot(_toCamWorld);
+    faceFade = faceDot <= 0 ? 0 : smoothstep(0.08, 0.28, faceDot);
+    const pitchBase = Math.asin(Math.min(1, cfg.centerLift));
+    for (let i = 0; i < list.length; i++) {
+      const cap = list[i];
       const az = (cap.userData.azimuth as number) + gazeOffset.x;
-      const pitch = cfg.pitch + gazeOffset.y;
+      const pitch = pitchBase + gazeOffset.y;
       const normal = botFaceNormal(az, pitch);
       const pos = normal.clone().multiplyScalar(surf);
       cap.position.copy(pos);
       cap.lookAt(camLocal);
       cap.rotateZ(cap.userData.extraRotZ ?? 0);
-      cap.scale.set(1, blinkOpen, 1);
-      cap.visible = normal.z < -0.08 && normal.dot(toCamLocal) > 0.02;
+      const closedRatio = (cfg.closedHeight / cfg.openHeight) * blinkOpen;
+      cap.scale.set(1, Math.max(closedRatio, blinkOpen), 1);
+      _eyeNormalWorld.copy(normal).transformDirection(bodyPivot.matrixWorld).normalize();
+      const facing = _eyeNormalWorld.dot(_toCamWorld);
+      const alpha =
+        facing <= 0
+          ? 0
+          : facing > 0.2
+            ? 1
+            : smoothstep(0, 0.2, facing) * Math.max(faceFade, 0.85);
+      eyeMats[i].opacity = alpha;
+      cap.visible = alpha > 0.04;
     }
   }
 
@@ -212,44 +239,54 @@ export function createBot() {
     return 'neutral';
   }
 
+  function setEyeGeometry(kind: 'capsule' | 'arc' | 'line') {
+    const geo =
+      kind === 'arc' ? eyeArcGeo : kind === 'line' ? eyeLineGeo : eyeCapsuleGeo;
+    for (const cap of eyes) {
+      cap.geometry = geo;
+      cap.userData.baseGeo = kind;
+    }
+  }
+
   function applyExpression(expr: BotExpression, blinkOpen: number, toCamLocal: THREE.Vector3, cameraWorld: THREE.Vector3) {
     for (const cap of eyes) {
       cap.userData.extraRotZ = 0;
       cap.scale.x = 1;
       cap.scale.z = 1;
     }
-    layoutEyes(eyes, blinkOpen, toCamLocal, cameraWorld);
-    const [left, right] = eyes;
     if (expr === 'sleepy') {
-      for (const cap of eyes) cap.scale.y = 0.22 * blinkOpen;
-    } else if (expr === 'surprised') {
-      for (const cap of eyes) {
-        cap.scale.x = 1.12;
-        cap.scale.y = 1.28 * blinkOpen;
-      }
+      setEyeGeometry('line');
+      for (const cap of eyes) cap.scale.y = blinkOpen;
     } else if (expr === 'happy') {
-      left.userData.extraRotZ = 0.55;
-      right.userData.extraRotZ = -0.55;
-      left.scale.set(0.75, 0.35 * blinkOpen, 1);
-      right.scale.set(0.75, 0.35 * blinkOpen, 1);
-      layoutEyes(eyes, blinkOpen, toCamLocal, cameraWorld);
+      setEyeGeometry('arc');
+      for (const cap of eyes) cap.scale.y = blinkOpen;
+    } else {
+      setEyeGeometry('capsule');
     }
+    layoutEyes(eyes, blinkOpen, toCamLocal, cameraWorld);
+    if (expr === 'surprised') {
+      for (let i = 0; i < eyes.length; i++) {
+        eyes[i].scale.x = 1.1;
+        eyes[i].scale.y = 1.15 * blinkOpen;
+        eyeMats[i].opacity *= 1;
+      }
+    }
+  }
+
+  function scheduleNextBlink(from: number) {
+    const cfg = botLook.eyes;
+    const long = Math.random() < cfg.blinkLongChance;
+    blinkAt = from + (long ? cfg.blinkLongGap : cfg.blinkMean + (Math.random() - 0.5) * 1.4);
   }
 
   function updateBlink(time: number) {
     const cfg = botLook.eyes;
     if (time >= blinkAt) {
       blinkCloseUntil = time + cfg.blinkClose;
-      blinkStage = Math.random() < cfg.doubleBlinkChance ? 2 : 1;
-      blinkAt = time + cfg.blinkMin + Math.random() * (cfg.blinkMax - cfg.blinkMin);
+      scheduleNextBlink(time);
     }
-    if (blinkStage > 0 && time > blinkCloseUntil + 0.08) {
-      if (blinkStage > 1) {
-        blinkStage = 1;
-        blinkCloseUntil = time + cfg.blinkClose * 0.85;
-      } else blinkStage = 0;
-    }
-    return time < blinkCloseUntil ? 0.06 : 1;
+    const closedRatio = cfg.closedHeight / cfg.openHeight;
+    return time < blinkCloseUntil ? closedRatio : 1;
   }
 
   function updateGlints(cameraWorld: THREE.Vector3) {
@@ -282,11 +319,16 @@ export function createBot() {
       const camLocal = bodyPivot.worldToLocal(cameraWorld.clone());
       glints[i].lookAt(camLocal);
     }
+  }
+
+  function refreshProbe() {
     _lastProbe = {
       radius: BOT_RADIUS,
       botRy: root.rotation.y,
       toCamWorld: { x: _toCamWorld.x, y: _toCamWorld.y, z: _toCamWorld.z },
       toCamLocal: { x: _view.x, y: _view.y, z: _view.z },
+      faceFade,
+      faceDot: -_bodyForward.dot(_toCamWorld),
       eyes: eyes.map((eye, i) => ({
         i,
         visible: eye.visible,
@@ -340,6 +382,7 @@ export function createBot() {
     updateGlints(motion.cameraPos);
     const expr = expressionFor(state, activity);
     updateEyes(time, motion, expr, _view);
+    refreshProbe();
 
     let yOff = 0;
     let scaleY = 1;

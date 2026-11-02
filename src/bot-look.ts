@@ -27,15 +27,17 @@ export const botLook = {
     surfaceInset: 0.01,
   },
   eyes: {
-    radius: 0.104,
-    length: 0.285,
-    pitch: 0.52,
-    azimuthSpread: 0.46,
-    gazeSlide: 0.08,
-    blinkMin: 2.4,
-    blinkMax: 6.8,
-    blinkClose: 0.11,
-    doubleBlinkChance: 0.22,
+    /** Screen-vertical capsule proportions vs BOT_RADIUS. */
+    openHeight: 0.52,
+    width: 0.24,
+    closedHeight: 0.075,
+    centerSpread: 0.32,
+    centerLift: 0.24,
+    gazeSlide: 0.06,
+    blinkMean: 3.9,
+    blinkLongGap: 11,
+    blinkLongChance: 0.14,
+    blinkClose: 0.13,
     cameraGlanceChance: 0.004,
   },
   shadow: {
@@ -98,6 +100,46 @@ export function botFaceNormal(azimuthFromForward: number, pitchFromForward: numb
   const sa = Math.sin(azimuthFromForward);
   const ca = Math.cos(azimuthFromForward);
   return new THREE.Vector3(sa * cp, sp, -ca * cp).normalize();
+}
+
+/** Upright rounded capsule in the mesh local XY plane (Y = screen-up after billboarding). */
+export function createEyeCapsuleGeometry(height: number, width: number) {
+  const r = Math.min(width / 2, height / 2);
+  const shape = new THREE.Shape();
+  shape.moveTo(r, height / 2 - r);
+  shape.absarc(0, height / 2 - r, r, 0, Math.PI, false);
+  shape.lineTo(-r, -height / 2 + r);
+  shape.absarc(0, -height / 2 + r, r, Math.PI, 0, false);
+  shape.lineTo(r, height / 2 - r);
+  const geo = new THREE.ShapeGeometry(shape, 10);
+  geo.center();
+  return geo;
+}
+
+/** Short horizontal line segment for sleepy eyes (local X). */
+export function createEyeLineGeometry(width: number) {
+  const shape = new THREE.Shape();
+  const h = width * 0.12;
+  shape.moveTo(-width / 2, 0);
+  shape.lineTo(width / 2, 0);
+  shape.lineTo(width / 2, h);
+  shape.lineTo(-width / 2, h);
+  const geo = new THREE.ShapeGeometry(shape);
+  geo.center();
+  return geo;
+}
+
+/** Upward arc for happy eyes. */
+export function createEyeArcGeometry(width: number) {
+  const shape = new THREE.Shape();
+  const t = width * 0.14;
+  shape.moveTo(-width / 2, 0);
+  shape.quadraticCurveTo(0, width * 0.55, width / 2, 0);
+  shape.lineTo(width / 2, -t);
+  shape.quadraticCurveTo(0, width * 0.55 - t, -width / 2, -t);
+  const geo = new THREE.ShapeGeometry(shape, 10);
+  geo.center();
+  return geo;
 }
 
 export function botFacePoint(azimuthFromForward: number, pitchFromForward: number, radius = BOT_RADIUS) {
