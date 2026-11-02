@@ -32,10 +32,14 @@ const M=(c:string)=>flatMaterial(c);function cube(w:number,h:number,d:number,x:n
 const activeRooms=()=>sceneData.rooms.filter(room=>store.rooms.includes(room.id));
 const roomGroup=new THREE.Group();scene.add(roomGroup);
 const decorGroup=new THREE.Group();scene.add(decorGroup);
-function renderRooms(){drawRooms(roomGroup,store.rooms);const blocks=buildRoomDecor(store.rooms,decorGroup);setDecorBlocks(blocks)}
-renderRooms();
+let perfBeforeMeshes:number|null=null;
+let perfAfterMeshes:number|null=null;
+function countSceneMeshes(){let n=0;scene.traverse(o=>{if(o instanceof THREE.Mesh&&o.visible)n++});return n}
+function renderRooms(){drawRooms(roomGroup,store.rooms);if(perfBeforeMeshes===null)perfBeforeMeshes=countSceneMeshes();const blocks=buildRoomDecor(store.rooms,decorGroup);setDecorBlocks(blocks);if(perfAfterMeshes===null)perfAfterMeshes=countSceneMeshes()}
+const furnitureGroup=new THREE.Group();scene.add(furnitureGroup);
+function rebuild(){for(const item of furnitureGroup.children)disposeFurniture(item);furnitureGroup.clear();for(const item of store.items)furnitureGroup.add(furniture(item));renderRooms()}
 cube(1.7,1.15,.06,.2,1.48,-3.89,look.palette.windowFrame);cube(1.54,.99,.07,.2,1.48,-3.82,look.palette.windowGlass);cube(.05,1,.08,.2,1.48,-3.75,look.palette.windowMullion);cube(1.55,.05,.08,.2,1.48,-3.75,look.palette.windowMullion);cube(1.85,.08,.2,.2,.91,-3.75,look.palette.sill);
-const furnitureGroup=new THREE.Group();scene.add(furnitureGroup);function rebuild(){for(const item of furnitureGroup.children)disposeFurniture(item);furnitureGroup.clear();for(const item of store.items)furnitureGroup.add(furniture(item));renderRooms()}rebuild();
+rebuild();
 const raycaster=new THREE.Raycaster();const pointer=new THREE.Vector2();let pointerStart:{x:number;y:number}|null=null;
 renderer.domElement.addEventListener('pointerdown',e=>{pointerStart={x:e.clientX,y:e.clientY}});
 let selectedItemId:string|null=null;function showItem(item:Item,focusClose=false){selectedItemId=item.id;el('detail-name').textContent=catalog[item.type].name;el('detail-price').textContent=item.price===undefined?`虚拟金币 ${catalog[item.type].price} · 初始家具`:`虚拟金币 ${item.price}`;el('item-details').hidden=false;if(focusClose)el('close-detail').focus()}
@@ -94,5 +98,9 @@ renderStats:()=>({calls:renderer.info.render.calls,triangles:renderer.info.rende
 benchRender:(frames=90)=>new Promise<{calls:number;triangles:number;frameTimeMs:number}>((resolve)=>{let i=0;let peakCalls=0;let peakTris=0;const t0=performance.now();const run=()=>{composer.render();peakCalls=Math.max(peakCalls,renderer.info.render.calls);peakTris=Math.max(peakTris,renderer.info.render.triangles);if(++i>=frames){resolve({calls:peakCalls,triangles:peakTris,frameTimeMs:(performance.now()-t0)/frames});return}requestAnimationFrame(run)};requestAnimationFrame(run)}),
 setSaveRooms:(ids:string[])=>{if(store.storageError)return false;store.rooms=[...ids];setActiveRooms(store.rooms);renderRooms();resetHouseView();resize();return true},
 countSceneMeshes:()=>{let n=0;scene.traverse((o)=>{if(o instanceof THREE.Mesh&&o.visible)n++});return n},
+countBotEyeMeshes:()=>botView.countEyeMeshesInScene?.()??0,
+auditEyeMeshesAtYaws:(yaws:number[])=>yaws.map((y)=>{bot.rotation.y=y;controls.update();composer.render();const probe=botView.probeDecals?.() as {eyes?:{visible:boolean}[]}|undefined;return{yaw:y,count:botView.countEyeMeshesInScene?.()??0,visibleProbe:probe?.eyes?.filter((e)=>e.visible).length??0}}),
+perfBeforeMeshes:()=>perfBeforeMeshes,
+perfAfterMeshes:()=>perfAfterMeshes,
 };
 requestAnimationFrame(animate);

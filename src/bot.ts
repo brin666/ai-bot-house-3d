@@ -76,9 +76,6 @@ export function createBot() {
 
   const eyeOpenH = BOT_RADIUS * botLook.eyes.openHeight;
   const eyeW = BOT_RADIUS * botLook.eyes.width;
-  const eyeCapsuleGeo = createEyeCapsuleGeometry(eyeOpenH, eyeW);
-  const eyeArcGeo = createEyeArcGeometry(eyeW);
-  const eyeLineGeo = createEyeLineGeometry(eyeW);
   const eyes: EyeMesh[] = [];
   const eyeMats: THREE.MeshBasicMaterial[] = [];
   const e = botLook.eyes;
@@ -86,15 +83,23 @@ export function createBot() {
     const mat = new THREE.MeshBasicMaterial({
       color: botLook.eye,
       toneMapped: false,
-      depthTest: false,
+      depthTest: true,
       depthWrite: false,
-      side: THREE.DoubleSide,
+      side: THREE.FrontSide,
       transparent: true,
       opacity: 1,
+      polygonOffset: true,
+      polygonOffsetFactor: -3,
+      polygonOffsetUnits: -3,
     });
     eyeMats.push(mat);
-    const plane = new THREE.Mesh(eyeCapsuleGeo, mat);
+    const geo =
+      side === -1
+        ? createEyeCapsuleGeometry(eyeOpenH, eyeW)
+        : createEyeCapsuleGeometry(eyeOpenH, eyeW);
+    const plane = new THREE.Mesh(geo, mat);
     plane.renderOrder = 35;
+    plane.userData.role = 'bot-eye';
     plane.userData.side = side;
     plane.userData.azimuth = side * Math.asin(Math.min(1, e.centerSpread));
     plane.userData.baseGeo = 'capsule';
@@ -213,6 +218,7 @@ export function createBot() {
       const pitch = pitchBase + gazeOffset.y;
       const normal = botFaceNormal(az, pitch);
       const pos = normal.clone().multiplyScalar(surf);
+      pos.add(_view.clone().multiplyScalar(BOT_RADIUS * 0.018));
       cap.position.copy(pos);
       cap.lookAt(camLocal);
       cap.rotateZ(cap.userData.extraRotZ ?? 0);
@@ -240,10 +246,12 @@ export function createBot() {
   }
 
   function setEyeGeometry(kind: 'capsule' | 'arc' | 'line') {
-    const geo =
-      kind === 'arc' ? eyeArcGeo : kind === 'line' ? eyeLineGeo : eyeCapsuleGeo;
+    const openH = BOT_RADIUS * botLook.eyes.openHeight;
+    const w = BOT_RADIUS * botLook.eyes.width;
     for (const cap of eyes) {
-      cap.geometry = geo;
+      if (kind === 'arc') cap.geometry = createEyeArcGeometry(w);
+      else if (kind === 'line') cap.geometry = createEyeLineGeometry(w);
+      else cap.geometry = createEyeCapsuleGeometry(openH, w);
       cap.userData.baseGeo = kind;
     }
   }
@@ -440,5 +448,13 @@ export function createBot() {
     return _lastProbe;
   }
 
-  return { root, update, probeDecals, setShells };
+  function countEyeMeshesInScene() {
+    let n = 0;
+    root.traverse((o) => {
+      if (o instanceof THREE.Mesh && o.userData.role === 'bot-eye') n++;
+    });
+    return n;
+  }
+
+  return { root, update, probeDecals, setShells, countEyeMeshesInScene };
 }
