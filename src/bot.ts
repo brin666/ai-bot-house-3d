@@ -119,7 +119,7 @@ export function createBot() {
   let glanceAt = 0;
   const gazeOffset = new THREE.Vector2();
   let faceFade = 1;
-  layoutEyes(eyes, 1, new THREE.Vector3(0, 0.35, -0.92).normalize(), new THREE.Vector3(0, 0.35, 5));
+  layoutEyes(eyes, 1, new THREE.Vector3(0, 0.35, 0.92).normalize(), new THREE.Vector3(0, 0.35, 5));
 
   const book = new THREE.Group();
   function part(w: number, h: number, d: number, y: number, color: string) {

@@ -99,7 +99,7 @@ export function botFaceNormal(azimuthFromForward: number, pitchFromForward: numb
   const sp = Math.sin(pitchFromForward);
   const sa = Math.sin(azimuthFromForward);
   const ca = Math.cos(azimuthFromForward);
-  return new THREE.Vector3(sa * cp, sp, -ca * cp).normalize();
+  return new THREE.Vector3(sa * cp, sp, ca * cp).normalize();
 }
 
 /** Upright rounded capsule in the mesh local XY plane (Y = screen-up after billboarding). */
