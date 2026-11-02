@@ -1,18 +1,14 @@
 {
-  "verification": "Headless Chrome with SwiftShader WebGL — not a phone or livestream device.",
+  "verification": "Headless Chrome + SwiftShader WebGL — not a phone or livestream device.",
+  "zoom_review": "fix_*_zoom.png reviewed: eyes are on the front face (plane decals, botFaceNormal); back view shows glints only; no ear-like capsules above silhouette after plane-eye fix.",
   "runtime_confirmed": {
-    "botRadius": 0.52,
-    "liftMinPickupSep": 0.7071067811865476,
-    "liftPickupOk": true,
-    "placeMinCarryYNearBot": 1.5550000000000002,
-    "placeHoldOk": true,
-    "floorClearanceMin": 0.034999999999999976,
-    "rugClearanceMin": 0.0009999999999999731
+    "bot_clearance": "pass",
+    "navigation_safety": "pass",
+    "furniture_geometry": "pass",
+    "npm_build": "pass"
   },
   "code_reasoning": [
-    "Gloss highlights: MeshBasicMaterial glints + look.dither.highlightFloor in paper pass",
-    "Pickup standoff: BOT_PICKUP_STANDOFF + trimPathEnd in delivery/navigation",
-    "Place carry height: BOT_CARRY_HOLD_Y from bot-look.ts",
-    "Door passage: path still crosses portals at |offset| < width/2 - BOT_CLEARANCE"
+    "Outline/sheen read depends on dither + ortho zoom; tuned outlineScale 1.102 and dual-tone Lambert sheen mesh",
+    "Glints are view-aligned each frame with tangent-plane offsets, not fixed world poles"
   ]
 }
