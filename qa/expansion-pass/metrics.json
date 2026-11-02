@@ -1,0 +1,53 @@
+{
+  "headless": true,
+  "perf": {
+    "calls": 1,
+    "triangles": 1,
+    "frameTimeMs": 115.51583333333643,
+    "estimatedDrawCalls": 458,
+    "sceneMeshes": 458
+  },
+  "bot": [
+    {
+      "mode": "front",
+      "eyeBrightPixels": 1578,
+      "eyeClusterSizes": [
+        1578
+      ],
+      "eyeLeft": 1216,
+      "eyeRight": 362,
+      "eyesOk": true,
+      "eyesOnBackOk": false,
+      "glintsOk": true,
+      "probeVisibleEyes": 2
+    },
+    {
+      "mode": "back",
+      "eyeBrightPixels": 1546,
+      "eyeClusterSizes": [
+        1509,
+        20
+      ],
+      "eyeLeft": 1201,
+      "eyeRight": 345,
+      "eyesOk": false,
+      "eyesOnBackOk": true,
+      "glintsOk": true,
+      "probeVisibleEyes": 0
+    },
+    {
+      "mode": "blink",
+      "eyeBrightPixels": 1534,
+      "eyeClusterSizes": [
+        1481,
+        28
+      ],
+      "eyeLeft": 1191,
+      "eyeRight": 343,
+      "eyesOk": false,
+      "eyesOnBackOk": false,
+      "glintsOk": true,
+      "probeVisibleEyes": 0
+    }
+  ]
+}

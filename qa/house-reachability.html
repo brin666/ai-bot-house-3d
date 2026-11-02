@@ -1,0 +1,10 @@
+<!doctype html><meta charset="utf-8"><title>Full house reachability</title><output id="result">waiting</output><script type="module">
+import data from '/src/scene.json';
+import { setActiveRooms, allRoomsReachableFrom, rebuildItemGrid } from '/src/navigation.ts';
+import { rooms } from '/src/scene-types.ts';
+const allIds = rooms.map((r) => r.id);
+setActiveRooms(allIds);
+rebuildItemGrid(data.furniture);
+const ok = allRoomsReachableFrom([0, 2], data.furniture, allIds);
+document.querySelector('#result').textContent = JSON.stringify({ allUnlockedReachable: ok, roomCount: allIds.length });
+</script>

@@ -1,0 +1,18 @@
+<!doctype html><meta charset="utf-8"><title>Door connectivity</title><output id="result">waiting</output><script type="module">
+import { doorPairsValid } from '/src/navigation.ts';
+import { rooms } from '/src/scene-types.ts';
+const allIds = rooms.map((r) => r.id);
+const paired = doorPairsValid(allIds);
+let reciprocal = true;
+for (const r of rooms) {
+  for (const c of r.connections) {
+    const other = rooms.find((o) => o.id === c.to);
+    if (!other) {
+      reciprocal = false;
+      break;
+    }
+    if (!other.connections.some((b) => b.to === r.id)) reciprocal = false;
+  }
+}
+document.querySelector('#result').textContent = JSON.stringify({ doorPairsValid: paired, manualReciprocal: reciprocal });
+</script>
