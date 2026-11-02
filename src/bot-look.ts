@@ -17,22 +17,26 @@ export const BOT_PICKUP_STANDOFF = BOT_RADIUS + 0.16;
 export const BOT_PLACE_CLEAR_RADIUS = BOT_RADIUS + 0.22;
 
 export const botLook = {
-  body: '#151922',
-  outline: '#1b3144',
+  body: '#101820',
+  bodySheen: '#1a2433',
+  outline: '#163248',
+  outlineScale: 1.102,
   eye: '#fffaf4',
   highlight: '#ffffff',
-  /** Specular glints on the body (local space on unit sphere, before radius scale). */
-  glints: [
-    { azimuth: -0.42, polar: 0.62, size: 0.085 },
-    { azimuth: 0.38, polar: 0.58, size: 0.078 },
-  ] as const,
+  glint: {
+    size: 0.065,
+    viewUp: 0.22,
+    viewSide: 0.38,
+    surfaceInset: 0.018,
+  },
   eyes: {
-    radius: 0.055,
-    length: 0.17,
-    spacing: 0.19,
-    polar: 1.05,
-    azimuth: 0,
-    gazeSlide: 0.11,
+    radius: 0.042,
+    length: 0.13,
+    /** Radians above forward (+Z) on the front face. */
+    pitch: 0.24,
+    azimuthSpread: 0.34,
+    surfaceInset: 0.078,
+    gazeSlide: 0.08,
     blinkMin: 2.4,
     blinkMax: 6.8,
     blinkClose: 0.11,
@@ -92,8 +96,20 @@ export function createBotShadowTexture() {
   return tex;
 }
 
-/** Point on sphere surface in body-local space (Y up, +Z forward). */
+/** Outward normal on the front hemisphere (+Z), pitched up from forward. */
+export function botFaceNormal(azimuthFromForward: number, pitchFromForward: number) {
+  const cp = Math.cos(pitchFromForward);
+  const sp = Math.sin(pitchFromForward);
+  const sa = Math.sin(azimuthFromForward);
+  const ca = Math.cos(azimuthFromForward);
+  return new THREE.Vector3(sa * cp, sp, ca * cp).normalize();
+}
+
+export function botFacePoint(azimuthFromForward: number, pitchFromForward: number, radius = BOT_RADIUS) {
+  return botFaceNormal(azimuthFromForward, pitchFromForward).multiplyScalar(radius);
+}
+
+/** @deprecated Use botFacePoint relative to body pivot. */
 export function sphereSurface(azimuth: number, polar: number, radius = BOT_RADIUS) {
-  const s = Math.sin(polar);
-  return new THREE.Vector3(radius * s * Math.sin(azimuth), BOT_BODY_CENTER_Y + radius * Math.cos(polar), radius * s * Math.cos(azimuth));
+  return botFacePoint(azimuth, Math.max(0, Math.PI / 2 - polar), radius).add(new THREE.Vector3(0, BOT_BODY_CENTER_Y, 0));
 }

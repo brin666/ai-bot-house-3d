@@ -4,8 +4,8 @@ import {
   BOT_RADIUS,
   botLook,
   BOT_BODY_CENTER_Y,
+  botFaceNormal,
   createBotShadowTexture,
-  sphereSurface,
 } from './bot-look';
 import { botMotion, jumpOffset, smoothstep } from './bot-motion';
 
@@ -23,6 +23,12 @@ export type BotMotionInput = {
 
 type EyeMesh = THREE.Mesh;
 
+const _camLocal = new THREE.Vector3();
+const _view = new THREE.Vector3();
+const _right = new THREE.Vector3();
+const _up = new THREE.Vector3();
+const _yAxis = new THREE.Vector3(0, 1, 0);
+
 export function createBot() {
   const root = new THREE.Group();
   const visual = new THREE.Group();
@@ -30,40 +36,62 @@ export function createBot() {
   const bodyGroup = new THREE.Group();
   visual.add(bodyGroup);
 
-  const body = new THREE.Mesh(
-    new THREE.SphereGeometry(BOT_RADIUS, 28, 22),
-    flatMaterial(botLook.body),
-  );
-  body.position.y = BOT_BODY_CENTER_Y;
+  const bodyPivot = new THREE.Group();
+  bodyPivot.position.y = BOT_BODY_CENTER_Y;
+  bodyGroup.add(bodyPivot);
+
+  const body = new THREE.Mesh(new THREE.SphereGeometry(BOT_RADIUS, 28, 22), flatMaterial(botLook.body));
   body.castShadow = true;
-  bodyGroup.add(body);
+  bodyPivot.add(body);
+
+  const sheen = new THREE.Mesh(
+    new THREE.SphereGeometry(BOT_RADIUS * 0.998, 28, 22),
+    flatMaterial(botLook.bodySheen),
+  );
+  sheen.scale.set(1, 1.02, 1.02);
+  bodyPivot.add(sheen);
 
   const outline = new THREE.Mesh(
-    new THREE.SphereGeometry(BOT_RADIUS * 1.038, 28, 22),
+    new THREE.SphereGeometry(BOT_RADIUS * botLook.outlineScale, 28, 22),
     new THREE.MeshBasicMaterial({ color: botLook.outline, side: THREE.BackSide }),
   );
-  outline.position.y = BOT_BODY_CENTER_Y;
-  bodyGroup.add(outline);
+  outline.renderOrder = 1;
+  bodyPivot.add(outline);
 
-  const glintMat = new THREE.MeshBasicMaterial({ color: botLook.highlight, toneMapped: false });
-  for (const g of botLook.glints) {
-    const glint = new THREE.Mesh(new THREE.CircleGeometry(BOT_RADIUS * g.size, 10), glintMat);
-    const p = sphereSurface(g.azimuth, g.polar, BOT_RADIUS * 0.992);
-    glint.position.copy(p);
-    glint.lookAt(p.x, p.y + 0.01, p.z + 0.15);
-    bodyGroup.add(glint);
+  const glintMat = new THREE.MeshBasicMaterial({
+    color: botLook.highlight,
+    toneMapped: false,
+    depthTest: true,
+    depthWrite: false,
+  });
+  const glints: THREE.Mesh[] = [];
+  for (let i = 0; i < 2; i++) {
+    const glint = new THREE.Mesh(new THREE.CircleGeometry(BOT_RADIUS * botLook.glint.size, 10), glintMat);
+    glint.renderOrder = 2;
+    glints.push(glint);
+    bodyPivot.add(glint);
   }
 
-  const eyeMat = new THREE.MeshBasicMaterial({ color: botLook.eye, toneMapped: false });
-  const eyeGroup = new THREE.Group();
-  bodyGroup.add(eyeGroup);
+  const eyeMat = new THREE.MeshBasicMaterial({
+    color: botLook.eye,
+    toneMapped: false,
+    depthTest: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  });
   const eyes: EyeMesh[] = [];
   const e = botLook.eyes;
   for (const side of [-1, 1]) {
-    const cap = new THREE.Mesh(new THREE.CapsuleGeometry(e.radius, e.length, 6, 10), eyeMat);
-    cap.userData.side = side;
-    eyes.push(cap);
-    eyeGroup.add(cap);
+    const plane = new THREE.Mesh(
+      new THREE.PlaneGeometry(e.radius * 2.05, e.length, 1, 1),
+      eyeMat,
+    );
+    plane.userData.side = side;
+    plane.userData.azimuth = side * e.azimuthSpread;
+    eyes.push(plane as EyeMesh);
+    bodyPivot.add(plane);
   }
 
   let blinkAt = 2.8;
@@ -71,7 +99,7 @@ export function createBot() {
   let blinkStage = 0;
   let glanceAt = 0;
   const gazeOffset = new THREE.Vector2();
-  layoutNeutralEyes(eyes, 1);
+  layoutEyes(eyes, 1, _view.set(0, 0, 1));
 
   const book = new THREE.Group();
   function part(w: number, h: number, d: number, y: number, color: string) {
@@ -81,14 +109,14 @@ export function createBot() {
   }
   part(0.52, 0.05, 0.36, 0, '#f26d62');
   part(0.48, 0.018, 0.32, 0.04, '#fff3cc');
-  book.position.set(0, 0.38, BOT_RADIUS * 0.72);
+  book.position.set(0, -0.24, BOT_RADIUS * 0.72);
   book.rotation.x = -0.22;
   book.visible = false;
-  bodyGroup.add(book);
+  bodyPivot.add(book);
 
   const sparkles = new THREE.Group();
   const sparkleInk = new THREE.MeshBasicMaterial({ color: '#f2c14b' });
-  for (const [x, y, z] of [[-0.62, 1.05, 0.18], [0.58, 1.18, 0.08]] as const) {
+  for (const [x, y, z] of [[-0.62, 0.45, 0.18], [0.58, 0.58, 0.08]] as const) {
     const star = new THREE.Group();
     for (const angle of [0, Math.PI / 2]) {
       const ray = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.04, 0.04), sparkleInk);
@@ -99,7 +127,7 @@ export function createBot() {
     sparkles.add(star);
   }
   sparkles.visible = false;
-  bodyGroup.add(sparkles);
+  bodyPivot.add(sparkles);
 
   const badge = new THREE.Group();
   badge.position.set(0, BOT_BODY_CENTER_Y + BOT_RADIUS + 0.35, 0);
@@ -159,16 +187,18 @@ export function createBot() {
   root.position.set(0, 0, 2);
   root.rotation.y = Math.PI / 4;
 
-  function layoutNeutralEyes(list: EyeMesh[], blinkOpen: number) {
+  function layoutEyes(list: EyeMesh[], blinkOpen: number, viewDir: THREE.Vector3) {
     const cfg = botLook.eyes;
-    const center = sphereSurface(cfg.azimuth, cfg.polar, BOT_RADIUS * 0.993);
-    eyeGroup.position.copy(center);
-    eyeGroup.position.z -= BOT_RADIUS * 0.02;
     for (const cap of list) {
-      const side = cap.userData.side as number;
-      cap.rotation.set(0, 0, 0);
-      cap.position.set(side * cfg.spacing * 0.5 + gazeOffset.x, gazeOffset.y, 0);
-      cap.scale.set(1, cfg.length / (cfg.radius * 2) * blinkOpen, 1);
+      const az = (cap.userData.azimuth as number) + gazeOffset.x;
+      const pitch = cfg.pitch + gazeOffset.y;
+      const normal = botFaceNormal(az, pitch);
+      const pos = normal.clone().multiplyScalar(BOT_RADIUS + 0.002);
+      cap.position.copy(pos);
+      cap.lookAt(pos.x + normal.x, pos.y + normal.y, pos.z + normal.z);
+      cap.rotateZ(cap.userData.extraRotZ ?? 0);
+      cap.scale.set(1, blinkOpen, 1);
+      cap.visible = normal.dot(viewDir) > 0.15 && normal.z > 0.22;
     }
   }
 
@@ -180,27 +210,27 @@ export function createBot() {
     return 'neutral';
   }
 
-  function applyExpression(expr: BotExpression, blinkOpen: number) {
-    layoutNeutralEyes(eyes, blinkOpen);
+  function applyExpression(expr: BotExpression, blinkOpen: number, viewDir: THREE.Vector3) {
+    for (const cap of eyes) {
+      cap.userData.extraRotZ = 0;
+      cap.scale.x = 1;
+      cap.scale.z = 1;
+    }
+    layoutEyes(eyes, blinkOpen, viewDir);
     const [left, right] = eyes;
     if (expr === 'sleepy') {
-      for (const cap of eyes) {
-        cap.scale.y = 0.12 * blinkOpen;
-        cap.position.y -= 0.02;
-      }
+      for (const cap of eyes) cap.scale.y = 0.22 * blinkOpen;
     } else if (expr === 'surprised') {
       for (const cap of eyes) {
         cap.scale.x = 1.12;
-        cap.scale.y = (botLook.eyes.length / (botLook.eyes.radius * 2)) * 1.25 * blinkOpen;
-        cap.scale.z = 1.05;
+        cap.scale.y = 1.28 * blinkOpen;
       }
     } else if (expr === 'happy') {
-      left.rotation.z = 0.62;
-      right.rotation.z = -0.62;
-      left.scale.set(0.62 * blinkOpen, 0.22, 0.35);
-      right.scale.set(0.62 * blinkOpen, 0.22, 0.35);
-      left.position.y += 0.015;
-      right.position.y += 0.015;
+      left.userData.extraRotZ = 0.55;
+      right.userData.extraRotZ = -0.55;
+      left.scale.set(0.75, 0.35 * blinkOpen, 1);
+      right.scale.set(0.75, 0.35 * blinkOpen, 1);
+      layoutEyes(eyes, blinkOpen, viewDir);
     }
   }
 
@@ -220,7 +250,41 @@ export function createBot() {
     return time < blinkCloseUntil ? 0.06 : 1;
   }
 
-  function updateEyes(time: number, motion: BotMotionInput, expr: BotExpression) {
+  function updateGlints(cameraWorld: THREE.Vector3) {
+    _camLocal.copy(cameraWorld);
+    bodyPivot.worldToLocal(_camLocal);
+    _view.copy(_camLocal).normalize();
+    _right.crossVectors(_yAxis, _view);
+    if (_right.lengthSq() < 1e-5) _right.set(1, 0, 0);
+    _right.normalize();
+    _up.crossVectors(_view, _right).normalize();
+    const g = botLook.glint;
+    const rSurf = BOT_RADIUS * (1 - g.surfaceInset);
+    const lift = BOT_RADIUS * 0.048;
+    const spread = BOT_RADIUS * 0.22;
+    const offsets = [
+      _right.clone().multiplyScalar(-spread).add(_up.clone().multiplyScalar(lift)),
+      _right.clone().multiplyScalar(spread).add(_up.clone().multiplyScalar(lift * 0.92)),
+    ];
+    for (let i = 0; i < glints.length; i++) {
+      const onSphere = _view
+        .clone()
+        .multiplyScalar(rSurf)
+        .add(offsets[i])
+        .normalize()
+        .multiplyScalar(rSurf);
+      const n = onSphere.clone().normalize();
+      if (n.dot(_view) < 0.35) {
+        glints[i].visible = false;
+        continue;
+      }
+      glints[i].visible = true;
+      glints[i].position.copy(onSphere);
+      glints[i].lookAt(onSphere.x + n.x, onSphere.y + n.y, onSphere.z + n.z);
+    }
+  }
+
+  function updateEyes(time: number, motion: BotMotionInput, expr: BotExpression, viewDir: THREE.Vector3) {
     let target = motion.gaze?.clone() ?? null;
     if (!target && motion.moveDir && motion.moveDir.lengthSq() > 0.01) {
       target = root.localToWorld(new THREE.Vector3(motion.moveDir.x, 0, motion.moveDir.y));
@@ -232,13 +296,13 @@ export function createBot() {
 
     gazeOffset.set(0, 0);
     if (target) {
-      const local = root.worldToLocal(target.clone());
+      const local = bodyPivot.worldToLocal(target.clone());
       const slide = botLook.eyes.gazeSlide;
-      gazeOffset.x = THREE.MathUtils.clamp(local.x * slide * 0.35, -slide, slide);
-      gazeOffset.y = THREE.MathUtils.clamp(local.y * slide * 0.22, -slide * 0.5, slide * 0.35);
+      gazeOffset.x = THREE.MathUtils.clamp(local.x * slide * 0.5, -slide, slide);
+      gazeOffset.y = THREE.MathUtils.clamp(local.y * slide * 0.35, -slide * 0.45, slide * 0.35);
     }
     const blinkOpen = updateBlink(time);
-    applyExpression(expr, blinkOpen);
+    applyExpression(expr, blinkOpen, viewDir);
   }
 
   function update(
@@ -248,8 +312,13 @@ export function createBot() {
     cameraRotation: THREE.Quaternion,
     motion: BotMotionInput,
   ) {
+    _camLocal.copy(motion.cameraPos);
+    bodyPivot.worldToLocal(_camLocal);
+    _view.copy(_camLocal).normalize();
+
+    updateGlints(motion.cameraPos);
     const expr = expressionFor(state, activity);
-    updateEyes(time, motion, expr);
+    updateEyes(time, motion, expr, _view);
 
     let yOff = 0;
     let scaleY = 1;
