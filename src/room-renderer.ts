@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { flatMaterial, look } from './look';
 import { mergeRoomFloorBoards } from './decor-builder';
-import { rooms as allRooms } from './scene-types';
+import { rooms as allRooms, type SceneRoom } from './scene-types';
 
 const WALL_THICKNESS = 0.12;
 const BACK_WALL_HEIGHT = 2.35;
@@ -25,6 +25,53 @@ function cube(
   mesh.receiveShadow = true;
   parent.add(mesh);
   return mesh;
+}
+
+/** Rear-facing edges follow the actual unlocked footprint, including steps. */
+function drawRearEdge(room: SceneRoom, side: 'north' | 'west', active: SceneRoom[], parent: THREE.Group) {
+  const north = side === 'north';
+  const [x, z] = room.position, [w, d] = room.size;
+  const edge = north ? z - d / 2 : x - w / 2;
+  const start = north ? x - w / 2 : z - d / 2;
+  const end = north ? x + w / 2 : z + d / 2;
+  const adjoining = active.filter((other) => {
+    if (other.id === room.id || other.kind === 'pool') return false;
+    const [ox, oz] = other.position, [ow, od] = other.size;
+    const opposite = north ? oz + od / 2 : ox + ow / 2;
+    const a = north ? ox - ow / 2 : oz - od / 2;
+    const b = north ? ox + ow / 2 : oz + od / 2;
+    return Math.abs(edge - opposite) < 0.02 && Math.min(end, b) - Math.max(start, a) > 0.05;
+  });
+  const spans = adjoining.map((other) => {
+    const center = north ? other.position[0] : other.position[1];
+    const half = (north ? other.size[0] : other.size[1]) / 2;
+    const ownDoor = room.connections.find((c) => c.to === other.id);
+    const theirDoor = other.connections.find((c) => c.to === room.id);
+    const door = ownDoor || theirDoor;
+    const doorCenter = door ? (ownDoor ? (north ? x : z) : center) + door.offset : 0;
+    return { start: Math.max(start, center - half), end: Math.min(end, center + half),
+      doorStart: door ? doorCenter - door.width / 2 : Infinity,
+      doorEnd: door ? doorCenter + door.width / 2 : Infinity };
+  });
+  const cuts = [start, end];
+  for (const span of spans) for (const v of [span.start, span.end, span.doorStart, span.doorEnd]) {
+    if (v > start && v < end) cuts.push(v);
+  }
+  cuts.sort((a, b) => a - b);
+  for (let i = 1; i < cuts.length; i++) {
+    const a = cuts[i - 1], b = cuts[i], middle = (a + b) / 2;
+    if (b - a < 0.01) continue;
+    const shared = spans.find((span) => middle > span.start && middle < span.end);
+    if (shared && middle > shared.doorStart && middle < shared.doorEnd) continue;
+    const h = shared ? CUTAWAY_SILL_HEIGHT : BACK_WALL_HEIGHT;
+    const color = shared ? look.palette.lowWall : north ? look.palette.wall : look.palette.wallSide;
+    if (north) cube(b - a, h, WALL_THICKNESS, middle, h / 2, edge, color, parent, !shared);
+    else cube(WALL_THICKNESS, h, b - a, edge, h / 2, middle, color, parent, !shared);
+    if (!shared) {
+      if (north) cube(b - a, .06, .15, middle, h + .03, edge, look.palette.trim, parent, false);
+      else cube(.15, .06, b - a, edge, h + .03, middle, look.palette.trim, parent, false);
+    }
+  }
 }
 
 export function drawRooms(roomGroup: THREE.Group, unlockedIds: string[]) {
@@ -101,15 +148,18 @@ export function drawRooms(roomGroup: THREE.Group, unlockedIds: string[]) {
     }
   }
   if (unlocked.size) {
-    const { minX, maxX, minZ, maxZ } = worldBoundsForRooms(unlockedIds);
-    const width = maxX - minX;
-    const depth = maxZ - minZ;
-    cube(width, BACK_WALL_HEIGHT, WALL_THICKNESS, (minX + maxX) / 2, BACK_WALL_HEIGHT / 2, minZ, p.wall, roomGroup);
-    cube(WALL_THICKNESS, BACK_WALL_HEIGHT, depth, minX, BACK_WALL_HEIGHT / 2, (minZ + maxZ) / 2, p.wallSide, roomGroup);
-    cube(width + 0.12, 0.06, 0.15, (minX + maxX) / 2, BACK_WALL_HEIGHT + 0.03, minZ, p.trim, roomGroup, false);
-    cube(0.15, 0.06, depth + 0.12, minX, BACK_WALL_HEIGHT + 0.03, (minZ + maxZ) / 2, p.trim, roomGroup, false);
+    const active = allRooms.filter((room) => unlocked.has(room.id));
+    for (const room of active) {
+      if (room.kind === 'yard' || room.kind === 'pool') continue;
+      drawRearEdge(room, 'north', active, roomGroup);
+      drawRearEdge(room, 'west', active, roomGroup);
+    }
     if (unlocked.has('room-1')) {
-      const x = Math.max(minX + 1, Math.min(maxX - 1, 0.2));
+      const x = 0.2;
+      const backRoom = active.filter((room) => room.kind !== 'yard' && room.kind !== 'pool' &&
+        x > room.position[0] - room.size[0] / 2 && x < room.position[0] + room.size[0] / 2)
+        .sort((a, b) => (a.position[1] - a.size[1] / 2) - (b.position[1] - b.size[1] / 2))[0];
+      const minZ = backRoom.position[1] - backRoom.size[1] / 2;
       cube(1.7, 1.15, .06, x, 1.48, minZ + .11, p.windowFrame, roomGroup);
       cube(1.54, .99, .07, x, 1.48, minZ + .18, p.windowGlass, roomGroup);
       cube(.05, 1, .08, x, 1.48, minZ + .25, p.windowMullion, roomGroup);

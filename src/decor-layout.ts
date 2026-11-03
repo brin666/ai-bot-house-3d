@@ -29,14 +29,14 @@ function artPiece(id: string, roomId: string, shapes: DecorShape[]): DecorPiece 
   return { id, roomId, shapes, wallArt: true };
 }
 
-function sharesRoomEdge(room: SceneRoom, side: 'north' | 'west') {
+function sharesRoomEdge(room: SceneRoom, side: 'north' | 'west', unlocked: Set<string>) {
   const [rx, rz] = room.position;
   const [w, d] = room.size;
   const overlaps = (a0: number, a1: number, b0: number, b1: number) =>
     Math.min(a1, b1) - Math.max(a0, b0) > 0.05;
 
   return rooms.some((other) => {
-    if (other.id === room.id) return false;
+    if (other.id === room.id || !unlocked.has(other.id) || other.kind === 'pool') return false;
     const [ox, oz] = other.position;
     const [ow, od] = other.size;
     if (side === 'north') {
@@ -344,7 +344,7 @@ export function decorLayout(unlockedIds: string[]): DecorLayout {
     const [w, d] = room.size;
     for (const side of room.walls) {
       if (side !== 'north' && side !== 'west') continue;
-      if (sharesRoomEdge(room, side)) continue;
+      if (sharesRoomEdge(room, side, unlocked)) continue;
       if (side === 'north') {
         const opening = room.connections.find((connection) => connection.side === side && unlocked.has(connection.to));
         const offset = opening?.offset ?? 0;
@@ -361,11 +361,16 @@ export function decorLayout(unlockedIds: string[]): DecorLayout {
     }
   }
 
-  const active = rooms.filter((room) => unlocked.has(room.id));
-  const minX = Math.min(...active.map((room) => room.position[0] - room.size[0] / 2));
-  const minZ = Math.min(...active.map((room) => room.position[1] - room.size[1] / 2));
-  // Wall art can only remain where the new continuous outside walls exist.
-  const visiblePieces = pieces.filter((piece) => !piece.wallArt || piece.shapes.some((shape) =>
-    Math.abs(shape.x - minX) < 0.25 || Math.abs(shape.z - minZ) < 0.25));
+  // Existing wall decorations are shown only on a present, full-height rear edge.
+  const visiblePieces = pieces.filter((piece) => {
+    if (!piece.wallArt) return true;
+    const room = rooms.find((r) => r.id === piece.roomId);
+    if (!room) return false;
+    const north = room.position[1] - room.size[1] / 2;
+    const west = room.position[0] - room.size[0] / 2;
+    return piece.shapes.some((shape) =>
+      (Math.abs(shape.z - north) < 0.25 && !sharesRoomEdge(room, 'north', unlocked)) ||
+      (Math.abs(shape.x - west) < 0.25 && !sharesRoomEdge(room, 'west', unlocked)));
+  });
   return { pieces: visiblePieces, blocks: visiblePieces.flatMap((piece) => piece.block ? [piece.block] : []) };
 }
