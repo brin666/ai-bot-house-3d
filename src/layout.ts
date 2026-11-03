@@ -10,6 +10,7 @@ export function renderLayout(app: HTMLElement) {
   </div>
   <div class="header-right">
     <span class="online"><i></i>本地模拟中</span>
+    <div class="live-summary" aria-live="polite"><span>虚拟金币 <strong id="livecoins">250</strong></span><span id="live-now">BOT 正在探索</span><small id="live-log"></small></div>
     <button id="mode" class="mode" type="button">竖屏直播</button>
   </div>
 </header>
@@ -42,10 +43,8 @@ export function renderLayout(app: HTMLElement) {
     <div class="live-overlay">
       <button id="live-focus" class="live-focus" type="button">近看 Bot</button>
       <div class="live-sink" hidden>
-        <strong id="livecoins"></strong>
         <small id="live-goal"></small>
         <i id="liveprogress"></i>
-        <p id="live-log"></p>
       </div>
     </div>
   </section>
@@ -79,6 +78,8 @@ export function renderLayout(app: HTMLElement) {
           <button type="button" data-activity="bed">休息</button>
           <button type="button" data-activity="table">阅读</button>
           <button type="button" data-activity="plant">看植物</button>
+          <button type="button" data-activity="chair">小憩</button>
+          <button type="button" data-activity="lamp">看灯</button>
         </div>
       </div>
     </div>

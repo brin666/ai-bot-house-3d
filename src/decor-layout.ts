@@ -361,5 +361,11 @@ export function decorLayout(unlockedIds: string[]): DecorLayout {
     }
   }
 
-  return { pieces, blocks: pieces.flatMap((piece) => piece.block ? [piece.block] : []) };
+  const active = rooms.filter((room) => unlocked.has(room.id));
+  const minX = Math.min(...active.map((room) => room.position[0] - room.size[0] / 2));
+  const minZ = Math.min(...active.map((room) => room.position[1] - room.size[1] / 2));
+  // Wall art can only remain where the new continuous outside walls exist.
+  const visiblePieces = pieces.filter((piece) => !piece.wallArt || piece.shapes.some((shape) =>
+    Math.abs(shape.x - minX) < 0.25 || Math.abs(shape.z - minZ) < 0.25));
+  return { pieces: visiblePieces, blocks: visiblePieces.flatMap((piece) => piece.block ? [piece.block] : []) };
 }

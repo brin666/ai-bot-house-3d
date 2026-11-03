@@ -13,7 +13,7 @@ import {
 import { botMotion, jumpOffset, smoothstep } from './bot-motion';
 
 export type BotState = 'Idle' | 'Move' | 'Jump' | 'Sleep' | 'Interact' | 'Approach' | 'Lift' | 'Carry' | 'Place';
-export type BotActivity = '' | 'Sleep' | 'Read' | 'Plant' | 'Admire';
+export type BotActivity = '' | 'Sleep' | 'Read' | 'Plant' | 'Sit' | 'Light' | 'Admire';
 export type BotExpression = 'neutral' | 'happy' | 'sleepy' | 'surprised';
 
 export type BotMotionInput = {
@@ -156,10 +156,13 @@ export function createBot() {
   const badge = new THREE.Group();
   badge.position.set(0, BOT_BODY_CENTER_Y + BOT_RADIUS + 0.35, 0);
   root.add(badge);
-  const icons: Record<'Sleep' | 'Read' | 'Plant', THREE.Group> = {
+  const icons: Record<'Sleep' | 'Read' | 'Plant' | 'Sit' | 'Light' | 'Admire', THREE.Group> = {
     Sleep: new THREE.Group(),
     Read: new THREE.Group(),
     Plant: new THREE.Group(),
+    Sit: new THREE.Group(),
+    Light: new THREE.Group(),
+    Admire: new THREE.Group(),
   };
   function flat(parent: THREE.Object3D, w: number, h: number, x: number, y: number, z: number, color: string, angle = 0) {
     const mesh = new THREE.Mesh(
@@ -190,6 +193,13 @@ export function createBot() {
   flat(icons.Plant, 0.025, 0.22, 0, -0.015, 0.003, '#6d836b');
   flat(icons.Plant, 0.14, 0.08, -0.065, 0.04, 0.004, '#91ad86', -0.5);
   flat(icons.Plant, 0.14, 0.08, 0.065, 0.075, 0.004, '#91ad86', 0.5);
+  flat(icons.Sit, 0.23, 0.04, 0, -0.04, 0.003, '#b67f6a');
+  flat(icons.Sit, 0.04, 0.19, -0.095, 0.025, 0.004, '#b67f6a');
+  flat(icons.Sit, 0.035, 0.1, 0.08, -0.11, 0.004, '#b67f6a');
+  flat(icons.Light, 0.18, 0.15, 0, 0.045, 0.003, '#e8b94e');
+  flat(icons.Light, 0.09, 0.045, 0, -0.065, 0.004, '#a77c44');
+  flat(icons.Admire, 0.21, 0.045, 0, 0, 0.003, '#e8b94e');
+  flat(icons.Admire, 0.045, 0.21, 0, 0, 0.004, '#e8b94e');
   for (const icon of Object.values(icons)) badge.add(icon);
   badge.visible = false;
 
@@ -438,16 +448,16 @@ export function createBot() {
     visual.position.y = yOff;
     visual.rotation.z =
       lean ||
-      (state === 'Sleep' ? 0.1 * Math.sin(time * 0.7) : activity === 'Plant' ? 0.1 * Math.sin(time * 2) : activity === 'Admire' ? 0.07 * Math.sin(time * 3) : 0);
+      (state === 'Sleep' ? 0.1 * Math.sin(time * 0.7) : state === 'Interact' && activity ? 0.045 * Math.sin(time * 5) : 0);
     bodyGroup.scale.set(scaleXZ, scaleY, scaleXZ);
     if (state === 'Sleep') bodyGroup.scale.y *= 0.92;
 
-    sparkles.visible = state === 'Interact' && activity === 'Admire';
+    sparkles.visible = state === 'Interact' && activity !== '';
     sparkles.scale.setScalar(0.8 + 0.2 * Math.sin(time * 5));
     book.visible = state === 'Interact' && activity === 'Read';
 
     const activeIcon =
-      state === 'Sleep' ? 'Sleep' : state === 'Interact' && (activity === 'Read' || activity === 'Plant') ? activity : null;
+      state === 'Sleep' ? 'Sleep' : state === 'Interact' && activity !== '' && activity !== 'Sleep' ? activity : null;
     badge.visible = activeIcon !== null;
     for (const [name, icon] of Object.entries(icons)) icon.visible = name === activeIcon;
     badge.quaternion.copy(root.quaternion).invert().multiply(cameraRotation);
