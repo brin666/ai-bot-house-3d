@@ -29,6 +29,25 @@ function artPiece(id: string, roomId: string, shapes: DecorShape[]): DecorPiece 
   return { id, roomId, shapes, wallArt: true };
 }
 
+function moveRotateShapes(
+  shapes: DecorShape[],
+  from: [number, number],
+  to: [number, number],
+  rotation: number,
+): DecorShape[] {
+  // Orthogonal turns keep boxes axis-aligned by swapping their floor dimensions.
+  const c = Math.cos(rotation);
+  const s = Math.sin(rotation);
+  return shapes.map((shape): DecorShape => {
+    const dx = shape.x - from[0];
+    const dz = shape.z - from[1];
+    const x = to[0] + dx * c + dz * s;
+    const z = to[1] - dx * s + dz * c;
+    if (shape.kind === 'box' && Math.abs(s) > 0.5) return { ...shape, x, z, w: shape.d, d: shape.w };
+    return { ...shape, x, z };
+  });
+}
+
 function makeWallArt(roomId: string, side: 'north' | 'west', x: number, z: number, wallEdge: number): DecorPiece {
   const id = `${roomId}-wall-art-${side}`;
   if (side === 'north') {
@@ -56,27 +75,29 @@ export function decorLayout(unlockedIds: string[]): DecorLayout {
 
   if (unlocked.has('room-1')) {
     add(
-      { id: 'room-1-rug', roomId: 'room-1', shapes: [box(2.55, 0.02, 1.55, -0.15, 0.012, 0.55, 'rugA'), box(2.2, 0.012, 1.2, -0.15, 0.028, 0.55, 'rugInset')] },
+      { id: 'room-1-rug', roomId: 'room-1', shapes: [box(2.8, 0.02, 2.65, -2.45, 0.012, -2.25, 'rugA'), box(2.4, 0.012, 2.25, -2.45, 0.028, -2.25, 'rugInset')] },
       floorPiece('room-1-nightstand', 'room-1', -1.02, -3.02, 0.78, 0.78, [
         box(0.78, 0.12, 0.78, -1.02, 0.68, -3.02, 'wood'),
         box(0.64, 0.5, 0.62, -1.02, 0.37, -3.02, 'woodDark'),
         box(0.08, 0.4, 0.52, -0.68, 0.38, -3.02, 'wood'),
         sphere(0.08, -1.02, 0.79, -3.02, 'gold'),
       ]),
-      floorPiece('room-1-wardrobe', 'room-1', 2.72, 2.55, 1.15, 1.54, [
+      // Against the west wall, with the doors facing east into clear floor.
+      floorPiece('room-1-wardrobe', 'room-1', -3.15, -0.2, 1.54, 1.15, moveRotateShapes([
         box(1.15, 1.92, 1.25, 2.72, 1.02, 2.55, 'woodDark'),
         box(1.02, 1.72, 0.06, 2.72, 1.03, 1.9, 'wood'),
         box(0.48, 1.58, 0.035, 2.46, 1.02, 1.86, 'cream'),
         box(0.48, 1.58, 0.035, 2.98, 1.02, 1.86, 'cream'),
         cyl(0.035, 0.035, 0.12, 2.72, 1.02, 1.82, 'gold', 8),
-      ]),
+      ], [2.72, 2.55], [-3.15, -0.2], -Math.PI / 2)),
     );
   }
 
   if (unlocked.has('room-2')) {
     add(
-      { id: 'room-2-rug', roomId: 'room-2', shapes: [box(3.3, 0.02, 2.3, 8, 0.012, 1.2, 'rugB'), box(2.95, 0.012, 1.95, 8, 0.028, 1.2, 'rugInset')] },
-      floorPiece('room-2-sofa', 'room-2', 8, 1.3, 3.05, 1.72, [
+      { id: 'room-2-rug', roomId: 'room-2', shapes: [box(3.4, 0.02, 3.7, 9.15, 0.012, 0.45, 'rugB'), box(3.05, 0.012, 3.35, 9.15, 0.028, 0.45, 'rugInset')] },
+      // Half-turn puts the backrest away from the TV and the seat toward it.
+      floorPiece('room-2-sofa', 'room-2', 9.15, 1.3, 3.05, 1.72, moveRotateShapes([
         box(2.65, 0.3, 1.48, 8, 0.2, 1.35, 'woodDark'),
         box(2.55, 0.42, 1.18, 8, 0.48, 1.48, 'coral'),
         box(2.62, 0.95, 0.32, 8, 0.78, 0.66, 'coral'),
@@ -85,7 +106,7 @@ export function decorLayout(unlockedIds: string[]): DecorLayout {
         box(0.66, 0.16, 0.58, 7.28, 0.76, 1.48, 'cream'),
         box(0.66, 0.16, 0.58, 8, 0.76, 1.48, 'gold'),
         box(0.66, 0.16, 0.58, 8.72, 0.76, 1.48, 'cream'),
-      ]),
+      ], [8, 1.3], [9.15, 1.3], Math.PI)),
       floorPiece('room-2-tv-stand', 'room-2', 9.15, -2.48, 2.05, 0.94, [
         box(2.05, 0.48, 0.72, 9.15, 0.3, -2.55, 'wood'),
         box(1.95, 0.09, 0.78, 9.15, 0.57, -2.55, 'gold'),
@@ -93,11 +114,11 @@ export function decorLayout(unlockedIds: string[]): DecorLayout {
         box(1.48, 0.72, 0.035, 9.15, 1.15, -2.73, 'windowGlass'),
         box(0.14, 0.14, 0.14, 9.15, 0.72, -2.72, 'gold'),
       ]),
-      floorPiece('room-2-floor-lamp', 'room-2', 10.9, -1.5, 0.62, 0.62, [
-        cyl(0.24, 0.28, 0.09, 10.9, 0.045, -1.5, 'woodDark'),
-        cyl(0.055, 0.055, 1.2, 10.9, 0.12, -1.5, 'lampStem', 10),
-        cyl(0.31, 0.17, 0.38, 10.9, 1.16, -1.5, 'lampShade', 12),
-        sphere(0.12, 10.9, 1.04, -1.5, 'cream'),
+      floorPiece('room-2-floor-lamp', 'room-2', 10.9, 3, 0.62, 0.62, [
+        cyl(0.24, 0.28, 0.09, 10.9, 0.045, 3, 'woodDark'),
+        cyl(0.055, 0.055, 1.2, 10.9, 0.12, 3, 'lampStem', 10),
+        cyl(0.31, 0.17, 0.38, 10.9, 1.16, 3, 'lampShade', 12),
+        sphere(0.12, 10.9, 1.04, 3, 'cream'),
       ]),
       floorPiece('room-2-plant', 'room-2', 5.42, 2.75, 1.1, 1.1, [
         cyl(0.28, 0.21, 0.42, 5.42, 0.21, 2.75, 'coral', 10),
@@ -111,7 +132,8 @@ export function decorLayout(unlockedIds: string[]): DecorLayout {
 
   if (unlocked.has('room-3')) {
     add(
-      floorPiece('room-3-counter-stove', 'room-3', 18.45, -1.5, 3.1, 1.1, [
+      // A single east-wall run; the rotated fridge door opens west into clear floor.
+      floorPiece('room-3-counter-stove', 'room-3', 19.1, 0.2, 1.1, 3.1, moveRotateShapes([
         box(2.9, 0.82, 0.9, 18.45, 0.48, -1.5, 'cream'),
         box(3.02, 0.14, 1.02, 18.45, 0.94, -1.5, 'wood'),
         box(1.0, 0.06, 0.68, 17.82, 1.04, -1.5, 'ink'),
@@ -120,47 +142,47 @@ export function decorLayout(unlockedIds: string[]): DecorLayout {
         cyl(0.17, 0.17, 0.045, 17.58, 1.09, -1.29, 'woodDark', 12),
         cyl(0.17, 0.17, 0.045, 18.05, 1.09, -1.29, 'woodDark', 12),
         box(0.22, 0.12, 0.07, 18.9, 1.04, -1.07, 'gold'),
-      ]),
-      floorPiece('room-3-fridge', 'room-3', 18.85, -3.05, 1.05, 1.4, [
+      ], [18.45, -1.5], [19.1, 0.2], -Math.PI / 2)),
+      floorPiece('room-3-fridge', 'room-3', 19.15, -2.6, 1.4, 1.05, moveRotateShapes([
         box(0.92, 2.05, 1.28, 18.85, 1.04, -3.05, 'windowGlass'),
         box(0.98, 0.08, 1.34, 18.85, 2.08, -3.05, 'cream'),
         box(0.08, 0.52, 0.08, 19.18, 1.32, -2.4, 'gold'),
         box(0.08, 0.7, 0.08, 19.18, 0.68, -2.4, 'gold'),
-      ]),
-      { id: 'room-3-rug', roomId: 'room-3', shapes: [box(2.5, 0.02, 1.75, 15.2, 0.012, 1.5, 'rugA')] },
+      ], [18.85, -3.05], [19.15, -2.6], -Math.PI / 2)),
+      { id: 'room-3-rug', roomId: 'room-3', shapes: [box(3.35, 0.02, 2.1, 15.25, 0.012, 1.5, 'rugA')] },
       floorPiece('room-3-dining-table', 'room-3', 15.25, 1.5, 1.6, 1.25, [
         box(1.6, 0.16, 1.25, 15.25, 0.82, 1.5, 'wood'),
         box(0.15, 0.72, 0.15, 14.62, 0.39, 1.03, 'woodDark'), box(0.15, 0.72, 0.15, 15.88, 0.39, 1.03, 'woodDark'),
         box(0.15, 0.72, 0.15, 14.62, 0.39, 1.97, 'woodDark'), box(0.15, 0.72, 0.15, 15.88, 0.39, 1.97, 'woodDark'),
         box(0.7, 0.08, 0.36, 15.25, 0.94, 1.5, 'cream'),
       ]),
-      floorPiece('room-3-chair-west', 'room-3', 14.0, 1.5, 0.62, 0.72, [
+      floorPiece('room-3-chair-west', 'room-3', 14.0, 1.5, 0.72, 0.62, moveRotateShapes([
         box(0.62, 0.16, 0.65, 14, 0.48, 1.5, 'coral'), box(0.62, 0.72, 0.14, 14, 0.87, 1.22, 'wood'),
         box(0.1, 0.46, 0.1, 13.78, 0.23, 1.28, 'woodDark'), box(0.1, 0.46, 0.1, 14.22, 0.23, 1.28, 'woodDark'),
         box(0.1, 0.46, 0.1, 13.78, 0.23, 1.72, 'woodDark'), box(0.1, 0.46, 0.1, 14.22, 0.23, 1.72, 'woodDark'),
-      ]),
-      floorPiece('room-3-chair-east', 'room-3', 16.48, 1.5, 0.62, 0.72, [
+      ], [14, 1.5], [14, 1.5], Math.PI / 2)),
+      floorPiece('room-3-chair-east', 'room-3', 16.48, 1.5, 0.72, 0.62, moveRotateShapes([
         box(0.62, 0.16, 0.65, 16.48, 0.48, 1.5, 'coral'), box(0.62, 0.72, 0.14, 16.48, 0.87, 1.78, 'wood'),
         box(0.1, 0.46, 0.1, 16.26, 0.23, 1.28, 'woodDark'), box(0.1, 0.46, 0.1, 16.7, 0.23, 1.28, 'woodDark'),
         box(0.1, 0.46, 0.1, 16.26, 0.23, 1.72, 'woodDark'), box(0.1, 0.46, 0.1, 16.7, 0.23, 1.72, 'woodDark'),
-      ]),
+      ], [16.48, 1.5], [16.48, 1.5], Math.PI / 2)),
     );
   }
 
   if (unlocked.has('room-4')) {
     add(
-      floorPiece('room-4-music-console', 'room-4', 5.4, 5.5, 2.6, 0.9, [
+      floorPiece('room-4-music-console', 'room-4', 8, 6, 2.6, 0.9, moveRotateShapes([
         box(2.6, 0.18, 0.9, 5.4, 0.78, 5.5, 'wood'),
         box(2.38, 0.6, 0.72, 5.4, 0.38, 5.5, 'ink'),
         box(1.0, 0.08, 0.18, 5.4, 0.92, 5.5, 'gold'),
         box(0.12, 0.18, 0.12, 4.85, 1.04, 5.5, 'coral'), box(0.12, 0.18, 0.12, 5.95, 1.04, 5.5, 'leaf'),
         cyl(0.16, 0.16, 0.16, 4.65, 0.95, 5.5, 'cream', 12), cyl(0.16, 0.16, 0.16, 6.15, 0.95, 5.5, 'cream', 12),
-      ]),
-      floorPiece('room-4-speaker-left', 'room-4', 6.25, 10.9, 0.62, 0.62, [box(0.62, 1.1, 0.62, 6.25, 0.55, 10.9, 'woodDark'), cyl(0.16, 0.16, 0.08, 6.25, 0.78, 10.9, 'ink'), cyl(0.1, 0.1, 0.08, 6.25, 0.32, 10.9, 'gold')]),
-      floorPiece('room-4-speaker-right', 'room-4', 9.75, 10.9, 0.62, 0.62, [box(0.62, 1.1, 0.62, 9.75, 0.55, 10.9, 'woodDark'), cyl(0.16, 0.16, 0.08, 9.75, 0.78, 10.9, 'ink'), cyl(0.1, 0.1, 0.08, 9.75, 0.32, 10.9, 'gold')]),
-      floorPiece('room-4-guitar', 'room-4', 10.75, 7.1, 0.75, 0.75, [
+      ], [5.4, 5.5], [8, 6], 0)),
+      floorPiece('room-4-speaker-left', 'room-4', 6.15, 6, 0.62, 0.62, moveRotateShapes([box(0.62, 1.1, 0.62, 6.25, 0.55, 10.9, 'woodDark'), cyl(0.16, 0.16, 0.08, 6.25, 0.78, 10.9, 'ink'), cyl(0.1, 0.1, 0.08, 6.25, 0.32, 10.9, 'gold')], [6.25, 10.9], [6.15, 6], 0)),
+      floorPiece('room-4-speaker-right', 'room-4', 9.85, 6, 0.62, 0.62, moveRotateShapes([box(0.62, 1.1, 0.62, 9.75, 0.55, 10.9, 'woodDark'), cyl(0.16, 0.16, 0.08, 9.75, 0.78, 10.9, 'ink'), cyl(0.1, 0.1, 0.08, 9.75, 0.32, 10.9, 'gold')], [9.75, 10.9], [9.85, 6], 0)),
+      floorPiece('room-4-guitar', 'room-4', 11.1, 5.85, 0.75, 0.75, moveRotateShapes([
         sphere(0.34, 10.75, 0.36, 7.1, 'coral'), box(0.14, 0.72, 0.14, 10.75, 0.75, 7.1, 'wood'), box(0.32, 0.14, 0.2, 10.75, 1.1, 7.1, 'gold'),
-      ]),
+      ], [10.75, 7.1], [11.1, 5.85], 0)),
       floorPiece('room-4-plant', 'room-4', 5.35, 10.9, 1.1, 1.1, [cyl(0.28, 0.2, 0.42, 5.35, 0.21, 10.9, 'cream'), sphere(0.3, 5.15, 0.75, 10.9, 'leaf'), sphere(0.28, 5.55, 0.76, 10.9, 'leaf'), sphere(0.24, 5.35, 1.05, 10.9, 'leaf')]),
     );
   }
@@ -174,9 +196,9 @@ export function decorLayout(unlockedIds: string[]): DecorLayout {
         box(1.0, 0.12, 0.12, 9.55, 0.71, -9.93, 'gold'),
         cyl(0.1, 0.1, 0.12, 9.18, 0.76, -9.91, 'leaf', 10), cyl(0.1, 0.1, 0.12, 9.88, 0.76, -9.91, 'cream', 10),
       ]),
-      floorPiece('room-5-beanbag', 'room-5', 6.65, -9.1, 1.05, 1.05, [sphere(0.52, 6.65, 0.42, -9.1, 'rugB'), sphere(0.38, 6.65, 0.64, -9.1, 'coral')]),
-      floorPiece('room-5-plant', 'room-5', 10.8, -6.1, 1.1, 1.1, [cyl(0.27, 0.2, 0.4, 10.8, 0.2, -6.1, 'wood'), sphere(0.29, 10.6, 0.7, -6.1, 'leaf'), sphere(0.29, 11, 0.72, -6.1, 'leaf'), sphere(0.25, 10.8, 1.0, -6.1, 'leaf')]),
-      { id: 'room-5-rug', roomId: 'room-5', shapes: [box(2.2, 0.02, 1.8, 8, 0.012, -7.15, 'rugA')] },
+      floorPiece('room-5-beanbag', 'room-5', 9.55, -8.6, 1.05, 1.05, [sphere(0.52, 9.55, 0.42, -8.6, 'rugB'), sphere(0.38, 9.55, 0.64, -8.6, 'coral')]),
+      floorPiece('room-5-plant', 'room-5', 10.8, -5.2, 1.1, 1.1, [cyl(0.27, 0.2, 0.4, 10.8, 0.2, -5.2, 'wood'), sphere(0.29, 10.6, 0.7, -5.2, 'leaf'), sphere(0.29, 11, 0.72, -5.2, 'leaf'), sphere(0.25, 10.8, 1.0, -5.2, 'leaf')]),
+      { id: 'room-5-rug', roomId: 'room-5', shapes: [box(2.6, 0.02, 3.0, 9.55, 0.012, -9.55, 'rugA')] },
     );
   }
 
@@ -189,39 +211,40 @@ export function decorLayout(unlockedIds: string[]): DecorLayout {
         box(0.86, 0.62, 0.06, -1.55, 1.2, 9.1, 'ink'), box(0.68, 0.42, 0.025, -1.55, 1.21, 9.06, 'pictureA'),
         box(0.42, 0.06, 0.32, -2.05, 0.94, 9.42, 'cream'),
       ]),
-      floorPiece('room-6-bookshelf', 'room-6', -2.9, 10.85, 1.08, 1.0, [
+      // Back panel sits at the west wall; the books face the desk to the east.
+      floorPiece('room-6-bookshelf', 'room-6', -3.45, 10, 1.0, 1.08, moveRotateShapes([
         box(1.08, 1.86, 0.82, -2.9, 0.93, 10.85, 'bookcase'),
         box(0.9, 1.62, 0.07, -2.9, 0.94, 10.4, 'bookcaseBack'),
         box(0.98, 0.1, 0.86, -2.9, 0.36, 10.85, 'shelf'), box(0.98, 0.1, 0.86, -2.9, 0.98, 10.85, 'shelf'), box(0.98, 0.1, 0.86, -2.9, 1.6, 10.85, 'shelf'),
         box(0.15, 0.42, 0.28, -3.24, 0.62, 10.62, 'books.0'), box(0.14, 0.48, 0.28, -3.02, 0.65, 10.62, 'books.1'),
         box(0.14, 0.38, 0.28, -2.79, 0.6, 10.62, 'books.2'), box(0.15, 0.5, 0.28, -2.56, 0.66, 10.62, 'books.3'),
         box(0.15, 0.42, 0.28, -3.14, 1.24, 10.62, 'books.2'), box(0.15, 0.44, 0.28, -2.89, 1.25, 10.62, 'books.0'), box(0.15, 0.37, 0.28, -2.64, 1.22, 10.62, 'books.1'),
-      ]),
-      floorPiece('room-6-study-chair', 'room-6', 0.05, 9.45, 0.78, 0.82, [
+      ], [-2.9, 10.85], [-3.45, 10], Math.PI / 2)),
+      floorPiece('room-6-study-chair', 'room-6', -1.55, 10.7, 0.78, 0.82, moveRotateShapes([
         box(0.78, 0.16, 0.72, 0.05, 0.53, 9.45, 'coral'), box(0.78, 0.72, 0.15, 0.05, 0.9, 9.12, 'wood'),
         box(0.1, 0.48, 0.1, -0.23, 0.24, 9.14, 'woodDark'), box(0.1, 0.48, 0.1, 0.33, 0.24, 9.14, 'woodDark'),
         box(0.1, 0.48, 0.1, -0.23, 0.24, 9.76, 'woodDark'), box(0.1, 0.48, 0.1, 0.33, 0.24, 9.76, 'woodDark'),
-      ]),
+      ], [0.05, 9.45], [-1.55, 10.7], Math.PI)),
       floorPiece('room-6-plant', 'room-6', 3, 5.75, 1.1, 1.1, [cyl(0.27, 0.2, 0.4, 3, 0.2, 5.75, 'coral'), sphere(0.3, 2.8, 0.7, 5.75, 'leaf'), sphere(0.3, 3.2, 0.72, 5.75, 'leaf'), sphere(0.24, 3, 1, 5.75, 'leaf')]),
     );
   }
 
   if (unlocked.has('room-7')) {
     add(
-      floorPiece('room-7-tub', 'room-7', -1.25, -9.75, 2.65, 1.75, [
+      floorPiece('room-7-tub', 'room-7', -0.8, -10.85, 2.65, 1.75, moveRotateShapes([
         box(2.65, 0.56, 1.62, -1.25, 0.28, -9.75, 'windowGlass'),
         box(2.45, 0.36, 1.42, -1.25, 0.52, -9.75, 'cream'),
         box(2.08, 0.14, 1.03, -1.25, 0.72, -9.75, 'windowGlass'),
         cyl(0.11, 0.11, 0.22, -2.25, 0.72, -9.0, 'gold', 8),
-      ]),
-      floorPiece('room-7-vanity-sink', 'room-7', 2.0, -5.65, 1.42, 1.08, [
+      ], [-1.25, -9.75], [-0.8, -10.85], 0)),
+      floorPiece('room-7-vanity-sink', 'room-7', 1.55, -10.85, 1.42, 1.08, moveRotateShapes([
         box(1.3, 0.84, 0.9, 2, 0.42, -5.65, 'wood'),
         box(1.42, 0.14, 1.02, 2, 0.91, -5.65, 'cream'),
         box(0.72, 0.18, 0.55, 2, 1.05, -5.65, 'windowGlass'),
         cyl(0.05, 0.05, 0.4, 2, 1.14, -5.34, 'trim', 10),
         cyl(0.045, 0.045, 0.28, 2, 1.34, -5.49, 'gold', 10),
-      ]),
-      { id: 'room-7-bath-mat', roomId: 'room-7', shapes: [box(1.5, 0.02, 0.9, 0.25, 0.012, -7.45, 'rugB')] },
+      ], [2, -5.65], [1.55, -10.85], 0)),
+      { id: 'room-7-bath-mat', roomId: 'room-7', shapes: [box(1.5, 0.02, 0.9, -0.8, 0.012, -9.2, 'rugB')] },
       floorPiece('room-7-plant', 'room-7', -3.05, -5.75, 1.1, 1.1, [cyl(0.27, 0.2, 0.42, -3.05, 0.21, -5.75, 'cream'), sphere(0.29, -3.25, 0.71, -5.75, 'leaf'), sphere(0.29, -2.85, 0.72, -5.75, 'leaf'), sphere(0.24, -3.05, 1.02, -5.75, 'leaf')]),
       artPiece('room-7-mirror', 'room-7', [box(1.22, 1.0, 0.08, 2, 1.78, -3.91, 'frame'), box(1.02, 0.8, 0.035, 2, 1.78, -3.85, 'windowGlass')]),
     );
