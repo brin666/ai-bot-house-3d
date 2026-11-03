@@ -550,3 +550,26 @@ body.portrait .live-summary #live-log { color: #766b60; overflow: hidden; text-o
 body.portrait .mode { flex: none; padding: 7px 10px; font-size: 12px; }
 body.portrait .stage { inset: 92px 0 0; height: calc(100% - 92px); }
 body.portrait .rail, body.portrait .live-focus, body.portrait .event-flash, body.portrait .item-details { display: none; }
+
+/* A compact broadcast slate lives above, rather than over, the scene. */
+body.portrait header {
+  height: 120px;
+  padding: 12px 14px 10px;
+  background: #fffaf4;
+  border-bottom: 2px solid #241c18;
+}
+body.portrait .header-right { position: relative; gap: 0; }
+body.portrait .live-summary { display: block; padding-right: 76px; }
+body.portrait .live-heading { display: flex; align-items: center; gap: 6px; color: #6b5e53; font-size: 11px; font-weight: 750; letter-spacing: .04em; }
+body.portrait .live-mark { display: grid; place-items: center; width: 20px; height: 20px; color: #fffaf4; background: #e25b45; font-size: 14px; }
+body.portrait .live-local { margin-left: 3px; color: #1f7a45; font-size: 10px; font-weight: 650; }
+body.portrait .live-readout { display: flex; align-items: end; gap: 14px; margin-top: 7px; }
+body.portrait .live-current { flex: 1; min-width: 0; }
+body.portrait .live-current small, body.portrait .live-balance small { display: block; color: #8a7b6d; font-size: 10px; line-height: 1; }
+body.portrait .live-summary #live-now { display: block; overflow: hidden; margin-top: 4px; color: #241c18; font-size: 14px; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
+body.portrait .live-balance { flex: none; border-left: 1px solid #eadcc8; padding-left: 12px; text-align: right; }
+body.portrait .live-summary .live-balance strong { display: block; margin: 3px 0 0; color: #1f7a45; font: 750 21px/1 var(--sans); font-variant-numeric: tabular-nums; }
+body.portrait .live-summary #live-log { display: block; margin-top: 7px; font-size: 10px; line-height: 1.2; }
+body.portrait .mode { position: absolute; top: 0; right: 0; border: 1px solid #eadcc8; padding: 6px 9px; background: transparent; font-size: 11px; }
+body.portrait .stage { inset: 120px 0 0; height: calc(100% - 120px); }
+body.portrait #live-save-alert:not([hidden]) { position: fixed; z-index: 10; top: 120px; left: 50%; width: min(90vw, 340px); transform: translateX(-50%); }
