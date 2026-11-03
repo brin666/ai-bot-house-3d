@@ -120,6 +120,9 @@ export function createBot() {
   let glanceAt = 0;
   const gazeOffset = new THREE.Vector2();
   let faceFade = 1;
+  let walkPhase = 0;
+  let previousX = root.position.x;
+  let previousZ = root.position.z;
   layoutEyes(eyes, 1, new THREE.Vector3(0, 0.35, 0.92).normalize(), new THREE.Vector3(0, 0.35, 5));
 
   const book = new THREE.Group();
@@ -391,6 +394,13 @@ export function createBot() {
     let scaleY = 1;
     let scaleXZ = 1;
     let lean = 0;
+    const traveled = Math.hypot(root.position.x - previousX, root.position.z - previousZ);
+    previousX = root.position.x;
+    previousZ = root.position.z;
+    // Ignore discontinuous repositioning; walking phase follows actual travel.
+    if ((state === 'Move' || state === 'Approach') && traveled < 0.25) {
+      walkPhase = (walkPhase + traveled * botMotion.walk.stepRadiansPerUnit) % (Math.PI * 2);
+    }
 
     if (state === 'Jump') {
       const j = jumpOffset(motion.jumpPhase);
@@ -399,8 +409,8 @@ export function createBot() {
       scaleXZ = j.scaleXZ;
     } else if (state === 'Move' || state === 'Approach' || state === 'Carry') {
       const bob = state === 'Carry' ? botMotion.carry.bob : botMotion.walk.stepBob;
-      const hz = state === 'Carry' ? botMotion.carry.bobHz : botMotion.walk.stepHz;
-      const stride = Math.abs(Math.sin(time * hz));
+      const phase = state === 'Carry' ? time * botMotion.carry.bobHz : walkPhase;
+      const stride = Math.abs(Math.sin(phase));
       const movement = smoothstep(0, 0.25, motion.moveSpeed);
       yOff = stride * bob * movement;
       if (state !== 'Carry') {
