@@ -3,6 +3,14 @@ import { flatMaterial, look } from './look';
 import { mergeRoomFloorBoards } from './decor-builder';
 import { rooms as allRooms, type SceneRoom } from './scene-types';
 
+type WallSide = 'north' | 'west' | 'south' | 'east';
+
+const WALL_THICKNESS = 0.12;
+const BACK_WALL_HEIGHT = 2.35;
+const CUTAWAY_SILL_HEIGHT = 0.22;
+const DOOR_POST_HEIGHT = 0.28;
+const YARD_FENCE_HEIGHT = 1.1;
+
 function cube(
   w: number,
   h: number,
@@ -22,56 +30,110 @@ function cube(
   return mesh;
 }
 
-function drawDoorSegments(
+function sharesRoomEdge(room: SceneRoom, side: WallSide) {
+  const [rx, rz] = room.position;
+  const [w, d] = room.size;
+  const overlaps = (a0: number, a1: number, b0: number, b1: number) =>
+    Math.min(a1, b1) - Math.max(a0, b0) > 0.05;
+
+  return allRooms.some((other) => {
+    if (other.id === room.id) return false;
+    const [ox, oz] = other.position;
+    const [ow, od] = other.size;
+    if (side === 'north') {
+      return Math.abs(rz - d / 2 - (oz + od / 2)) < 0.02 && overlaps(rx - w / 2, rx + w / 2, ox - ow / 2, ox + ow / 2);
+    }
+    if (side === 'south') {
+      return Math.abs(rz + d / 2 - (oz - od / 2)) < 0.02 && overlaps(rx - w / 2, rx + w / 2, ox - ow / 2, ox + ow / 2);
+    }
+    if (side === 'east') {
+      return Math.abs(rx + w / 2 - (ox - ow / 2)) < 0.02 && overlaps(rz - d / 2, rz + d / 2, oz - od / 2, oz + od / 2);
+    }
+    return Math.abs(rx - w / 2 - (ox + ow / 2)) < 0.02 && overlaps(rz - d / 2, rz + d / 2, oz - od / 2, oz + od / 2);
+  });
+}
+
+function drawWallSpan(
   room: SceneRoom,
-  c: SceneRoom['connections'][number],
-  p: typeof look.palette,
+  side: WallSide,
+  start: number,
+  length: number,
+  height: number,
+  color: string,
   parent: THREE.Object3D,
+  cast: boolean,
 ) {
-  if (c.side !== 'north' && c.side !== 'south' && c.side !== 'east' && c.side !== 'west') return;
-  const horizontal = c.side === 'east' || c.side === 'west';
-  const edge = horizontal
-    ? room.position[0] + (c.side === 'east' ? 1 : -1) * (room.size[0] / 2)
-    : room.position[1] + (c.side === 'south' ? 1 : -1) * (room.size[1] / 2);
-  const mid = (horizontal ? room.position[1] : room.position[0]) + c.offset;
-  const half = (horizontal ? room.size[1] : room.size[0]) / 2;
-  const start = (horizontal ? room.position[1] : room.position[0]) - half;
-  const left = mid - c.width / 2 - start;
-  const right = start + half * 2 - (mid + c.width / 2);
-  if (left > 0.05) {
-    if (horizontal) cube(0.12, 0.48, left, edge, 0.26, start + left / 2, p.lowWall, parent);
-    else cube(left, 0.48, 0.12, start + left / 2, 0.26, edge, p.lowWall, parent);
-  }
-  if (right > 0.05) {
-    if (horizontal) cube(0.12, 0.48, right, edge, 0.26, mid + c.width / 2 + right / 2, p.lowWall, parent);
-    else cube(right, 0.48, 0.12, mid + c.width / 2 + right / 2, 0.26, edge, p.lowWall, parent);
+  if (length <= 0.05) return;
+  const [rx, rz] = room.position;
+  const [w, d] = room.size;
+  if (side === 'east' || side === 'west') {
+    const edge = rx + (side === 'east' ? 1 : -1) * (w / 2);
+    cube(WALL_THICKNESS, height, length, edge, height / 2, start + length / 2, color, parent, cast);
+  } else {
+    const edge = rz + (side === 'south' ? 1 : -1) * (d / 2);
+    cube(length, height, WALL_THICKNESS, start + length / 2, height / 2, edge, color, parent, cast);
   }
 }
 
-function drawFullWall(
+function drawDoorFrame(
+  edge: number,
+  mid: number,
+  width: number,
+  horizontal: boolean,
+  p: typeof look.palette,
+  parent: THREE.Object3D,
+) {
+  for (const postMid of [mid - width / 2, mid + width / 2]) {
+    if (horizontal) cube(WALL_THICKNESS, DOOR_POST_HEIGHT, WALL_THICKNESS, edge, DOOR_POST_HEIGHT / 2, postMid, p.trim, parent, false);
+    else cube(WALL_THICKNESS, DOOR_POST_HEIGHT, WALL_THICKNESS, postMid, DOOR_POST_HEIGHT / 2, edge, p.trim, parent, false);
+  }
+  // A thin contrasting threshold keeps the open doorway legible without blocking the path.
+  if (horizontal) cube(WALL_THICKNESS, 0.025, width, edge, 0.0725, mid, p.trim, parent, false);
+  else cube(width, 0.025, WALL_THICKNESS, mid, 0.0725, edge, p.trim, parent, false);
+}
+
+function drawWallEdge(
   room: SceneRoom,
-  side: 'north' | 'west' | 'south' | 'east',
+  side: WallSide,
+  doors: SceneRoom['connections'],
   p: typeof look.palette,
   parent: THREE.Object3D,
 ) {
   const [rx, rz] = room.position;
   const [w, d] = room.size;
-  /** Default iso camera sits at +X,+Z — south/east walls stay low for dollhouse view. */
+  const horizontal = side === 'east' || side === 'west';
+  const edge = horizontal
+    ? rx + (side === 'east' ? 1 : -1) * (w / 2)
+    : rz + (side === 'south' ? 1 : -1) * (d / 2);
+  const axisCenter = horizontal ? rz : rx;
+  const edgeLength = horizontal ? d : w;
+  const edgeStart = axisCenter - edgeLength / 2;
+  const edgeEnd = edgeStart + edgeLength;
   const near = side === 'south' || side === 'east';
-  const wallH = near ? 0.48 : 2.35;
-  const y = near ? 0.26 : 1.18;
-  const trimY = near ? 0.52 : 2.37;
-  const trimH = near ? 0.06 : 0.06;
-  if (side === 'north') {
-    cube(w + 0.12, wallH, 0.12, rx, y, rz - d / 2, p.wall, parent, !near);
-    if (!near) cube(w + 0.14, trimH, 0.15, rx, trimY, rz - d / 2, p.trim, parent, false);
-  } else if (side === 'west') {
-    cube(0.12, wallH, d, rx - w / 2, y, rz, p.wallSide, parent, !near);
-    if (!near) cube(0.15, trimH, d, rx - w / 2, trimY, rz, p.trim, parent, false);
-  } else if (side === 'south') {
-    cube(w + 0.12, wallH, 0.12, rx, y, rz + d / 2, p.lowWall, parent, false);
-  } else if (side === 'east') {
-    cube(0.12, wallH, d, rx + w / 2, y, rz, p.lowWall, parent, false);
+  // Shared edges become low too: from +X,+Z a tall neighbor wall can sit in front of this room.
+  const cutaway = near || sharesRoomEdge(room, side);
+  const wallHeight = cutaway ? CUTAWAY_SILL_HEIGHT : BACK_WALL_HEIGHT;
+  const color = cutaway ? p.lowWall : side === 'west' ? p.wallSide : p.wall;
+  const openings = doors
+    .map((door) => {
+      const mid = axisCenter + door.offset;
+      return { mid, start: Math.max(edgeStart, mid - door.width / 2), end: Math.min(edgeEnd, mid + door.width / 2) };
+    })
+    .filter((door) => door.end - door.start > 0.05)
+    .sort((a, b) => a.start - b.start);
+
+  let cursor = edgeStart;
+  for (const opening of openings) {
+    drawWallSpan(room, side, cursor, opening.start - cursor, wallHeight, color, parent, !cutaway);
+    drawDoorFrame(edge, opening.mid, opening.end - opening.start, horizontal, p, parent);
+    cursor = Math.max(cursor, opening.end);
+  }
+  drawWallSpan(room, side, cursor, edgeEnd - cursor, wallHeight, color, parent, !cutaway);
+
+  if (!cutaway) {
+    const trimY = wallHeight + 0.03;
+    if (side === 'north') cube(w + 0.14, 0.06, 0.15, rx, trimY, edge, p.trim, parent, false);
+    else if (side === 'west') cube(0.15, 0.06, d, edge, trimY, rz, p.trim, parent, false);
   }
 }
 
@@ -109,40 +171,46 @@ export function drawRooms(roomGroup: THREE.Group, unlockedIds: string[]) {
     cube(w, 0.12, d, rx, 0, rz, floor, roomGroup);
     const boardCount = Math.max(8, Math.floor(Math.max(w, d) * 2));
     mergeRoomFloorBoards(roomGroup, rx, rz, w, d, line, boardCount);
-    for (const side of room.walls) drawFullWall(room, side, p, roomGroup);
-    for (const c of room.connections) {
-      if (!unlocked.has(c.to)) continue;
-      drawDoorSegments(room, c, p, roomGroup);
+    for (const side of ['north', 'west', 'south', 'east'] as const) {
+      const doors = room.connections.filter((c) => c.side === side && unlocked.has(c.to));
+      if (room.walls.includes(side) || doors.length) drawWallEdge(room, side, doors, p, roomGroup);
     }
     if (room.kind === 'yard') {
-      const fenceH = 1.1;
       const posts = Math.floor(w / 2);
-      const postGeo = new THREE.BoxGeometry(0.08, fenceH, 0.08);
       const postMat = flatMaterial(p.trim);
-      const northPosts = new THREE.InstancedMesh(postGeo, postMat, posts + 1);
-      const southPosts = new THREE.InstancedMesh(postGeo, postMat, posts + 1);
+      const farPosts = new THREE.InstancedMesh(
+        new THREE.BoxGeometry(0.08, YARD_FENCE_HEIGHT, 0.08),
+        postMat,
+        posts + 1,
+      );
+      const nearPosts = new THREE.InstancedMesh(
+        new THREE.BoxGeometry(0.08, CUTAWAY_SILL_HEIGHT, 0.08),
+        postMat,
+        posts + 1,
+      );
       const m = new THREE.Matrix4();
       for (let i = 0; i <= posts; i++) {
         const fx = rx - w / 2 + (i * w) / posts;
-        m.makeTranslation(fx, fenceH / 2, rz + d / 2);
-        northPosts.setMatrixAt(i, m);
-        m.makeTranslation(fx, fenceH / 2, rz - d / 2);
-        southPosts.setMatrixAt(i, m);
+        m.makeTranslation(fx, YARD_FENCE_HEIGHT / 2, rz - d / 2);
+        farPosts.setMatrixAt(i, m);
+        m.makeTranslation(fx, CUTAWAY_SILL_HEIGHT / 2, rz + d / 2);
+        nearPosts.setMatrixAt(i, m);
       }
-      northPosts.instanceMatrix.needsUpdate = true;
-      southPosts.instanceMatrix.needsUpdate = true;
-      northPosts.castShadow = false;
-      southPosts.castShadow = false;
-      roomGroup.add(northPosts, southPosts);
+      farPosts.instanceMatrix.needsUpdate = true;
+      nearPosts.instanceMatrix.needsUpdate = true;
+      farPosts.castShadow = false;
+      nearPosts.castShadow = false;
+      roomGroup.add(farPosts, nearPosts);
       for (let i = 0; i <= Math.floor(d / 2); i++) {
         const fz = rz - d / 2 + (i * d) / Math.floor(d / 2);
-        cube(0.06, fenceH * 0.35, d / Math.floor(d / 2), rx - w / 2, fenceH * 0.55, fz, '#f8f4e8', roomGroup, false);
-        cube(0.06, fenceH * 0.35, d / Math.floor(d / 2), rx + w / 2, fenceH * 0.55, fz, '#f8f4e8', roomGroup, false);
+        const farRailHeight = YARD_FENCE_HEIGHT * 0.35;
+        cube(0.06, farRailHeight, d / Math.floor(d / 2), rx - w / 2, YARD_FENCE_HEIGHT * 0.55, fz, '#f8f4e8', roomGroup, false);
+        cube(0.06, CUTAWAY_SILL_HEIGHT, d / Math.floor(d / 2), rx + w / 2, CUTAWAY_SILL_HEIGHT / 2, fz, '#f8f4e8', roomGroup, false);
       }
       const gate = room.connections.find((c) => c.to === 'room-10');
       if (gate) {
         const gx = rx + gate.offset;
-        cube(gate.width, fenceH * 0.5, 0.12, gx, fenceH * 0.25, rz - d / 2, p.wood, roomGroup);
+        cube(gate.width, CUTAWAY_SILL_HEIGHT, 0.12, gx, CUTAWAY_SILL_HEIGHT / 2, rz - d / 2, p.wood, roomGroup, false);
       }
     }
   }
