@@ -1,4 +1,4 @@
-import { rooms } from './scene-types';
+import { rooms, type SceneRoom } from './scene-types';
 
 export type PaletteToken =
   | 'wood' | 'woodDark' | 'cream' | 'coral' | 'leaf' | 'ink' | 'gold' | 'rugA' | 'rugB'
@@ -27,6 +27,23 @@ function floorPiece(id: string, roomId: string, x: number, z: number, w: number,
 
 function artPiece(id: string, roomId: string, shapes: DecorShape[]): DecorPiece {
   return { id, roomId, shapes, wallArt: true };
+}
+
+function sharesRoomEdge(room: SceneRoom, side: 'north' | 'west') {
+  const [rx, rz] = room.position;
+  const [w, d] = room.size;
+  const overlaps = (a0: number, a1: number, b0: number, b1: number) =>
+    Math.min(a1, b1) - Math.max(a0, b0) > 0.05;
+
+  return rooms.some((other) => {
+    if (other.id === room.id) return false;
+    const [ox, oz] = other.position;
+    const [ow, od] = other.size;
+    if (side === 'north') {
+      return Math.abs(rz - d / 2 - (oz + od / 2)) < 0.02 && overlaps(rx - w / 2, rx + w / 2, ox - ow / 2, ox + ow / 2);
+    }
+    return Math.abs(rx - w / 2 - (ox + ow / 2)) < 0.02 && overlaps(rz - d / 2, rz + d / 2, oz - od / 2, oz + od / 2);
+  });
 }
 
 function moveRotateShapes(
@@ -246,7 +263,7 @@ export function decorLayout(unlockedIds: string[]): DecorLayout {
       ], [2, -5.65], [1.55, -10.85], 0)),
       { id: 'room-7-bath-mat', roomId: 'room-7', shapes: [box(1.5, 0.02, 0.9, -0.8, 0.012, -9.2, 'rugB')] },
       floorPiece('room-7-plant', 'room-7', -3.05, -5.75, 1.1, 1.1, [cyl(0.27, 0.2, 0.42, -3.05, 0.21, -5.75, 'cream'), sphere(0.29, -3.25, 0.71, -5.75, 'leaf'), sphere(0.29, -2.85, 0.72, -5.75, 'leaf'), sphere(0.24, -3.05, 1.02, -5.75, 'leaf')]),
-      artPiece('room-7-mirror', 'room-7', [box(1.22, 1.0, 0.08, 2, 1.78, -3.91, 'frame'), box(1.02, 0.8, 0.035, 2, 1.78, -3.85, 'windowGlass')]),
+      artPiece('room-7-mirror', 'room-7', [box(0.08, 1.0, 1.22, -3.91, 1.78, -6.3, 'frame'), box(0.035, 0.8, 1.02, -3.85, 1.78, -6.3, 'windowGlass')]),
     );
   }
 
@@ -327,6 +344,7 @@ export function decorLayout(unlockedIds: string[]): DecorLayout {
     const [w, d] = room.size;
     for (const side of room.walls) {
       if (side !== 'north' && side !== 'west') continue;
+      if (sharesRoomEdge(room, side)) continue;
       if (side === 'north') {
         const opening = room.connections.find((connection) => connection.side === side && unlocked.has(connection.to));
         const offset = opening?.offset ?? 0;

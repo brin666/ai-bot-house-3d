@@ -400,7 +400,14 @@ export function createBot() {
     } else if (state === 'Move' || state === 'Approach' || state === 'Carry') {
       const bob = state === 'Carry' ? botMotion.carry.bob : botMotion.walk.stepBob;
       const hz = state === 'Carry' ? botMotion.carry.bobHz : botMotion.walk.stepHz;
-      yOff = Math.abs(Math.sin(time * hz)) * bob * smoothstep(0, 0.25, motion.moveSpeed);
+      const stride = Math.abs(Math.sin(time * hz));
+      const movement = smoothstep(0, 0.25, motion.moveSpeed);
+      yOff = stride * bob * movement;
+      if (state !== 'Carry') {
+        const groundSquash = botMotion.walk.stepSquash * movement * (1 - stride);
+        scaleY = 1 - groundSquash;
+        scaleXZ = 1 + groundSquash * 0.6;
+      }
       if (motion.moveDir) lean = -motion.moveDir.x * botMotion.walk.lean * motion.moveSpeed;
     } else if (state === 'Interact' && activity === 'Admire') {
       yOff = Math.abs(Math.sin(time * 3)) * 0.04;
