@@ -16,14 +16,14 @@ export {
 
 export const botMotion = {
   walk: {
-    speed: 1.05,
-    accel: 4.2,
+    speed: 1.9,
+    accel: 6,
     decel: 5.5,
-    stepBob: 0.055,
+    stepBob: 0.065,
     stepRadiansPerUnit: 14,
     stepSquash: 0.035,
     lean: 0.15,
-    turnRate: 5.8,
+    turnRate: 8,
   },
   jump: {
     duration: 2.35,

@@ -4,17 +4,19 @@ import * as THREE from 'three';
  * Bot size, clearance, and appearance tunables (single place).
  * Navigation imports BOT_RADIUS / BOT_CLEARANCE from here via bot-metrics.ts.
  */
-export const BOT_RADIUS = 0.52;
-export const BOT_CLEARANCE = BOT_RADIUS + 0.04;
+export const BOT_RADIUS = 0.40;
+/** Keep existing navigation and saved-layout clearances conservative. */
+export const BOT_NAV_RADIUS = 0.52;
+export const BOT_CLEARANCE = BOT_NAV_RADIUS + 0.04;
 
 export const FLOOR_SURFACE_Y = 0.06;
 export const RUG_SURFACE_Y = 0.094;
 export const BOT_BODY_CENTER_Y = FLOOR_SURFACE_Y + BOT_RADIUS + 0.035;
 /** Parcel height while carrying / before drop — must clear scaled head. */
 export const BOT_CARRY_HOLD_Y = BOT_BODY_CENTER_Y + BOT_RADIUS + 0.42;
-export const BOT_PICKUP_STANDOFF = BOT_RADIUS + 0.16;
+export const BOT_PICKUP_STANDOFF = BOT_NAV_RADIUS + 0.16;
 /** Min horizontal bot–parcel separation while carryY is high during Place. */
-export const BOT_PLACE_CLEAR_RADIUS = BOT_RADIUS + 0.22;
+export const BOT_PLACE_CLEAR_RADIUS = BOT_NAV_RADIUS + 0.22;
 
 export const botLook = {
   body: '#0f141c',

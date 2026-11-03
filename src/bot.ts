@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { flatMaterial } from './look';
 import {
   BOT_RADIUS,
+  BOT_NAV_RADIUS,
   botLook,
   BOT_BODY_CENTER_Y,
   botFaceNormal,
@@ -133,7 +134,8 @@ export function createBot() {
   }
   part(0.52, 0.05, 0.36, 0, '#f26d62');
   part(0.48, 0.018, 0.32, 0.04, '#fff3cc');
-  book.position.set(0, -0.24, BOT_RADIUS * 0.72);
+  book.scale.setScalar(BOT_RADIUS / BOT_NAV_RADIUS);
+  book.position.set(0, -0.24 * BOT_RADIUS / BOT_NAV_RADIUS, BOT_RADIUS * 0.72);
   book.rotation.x = -0.22;
   book.visible = false;
   bodyPivot.add(book);
@@ -147,13 +149,14 @@ export function createBot() {
       ray.rotation.z = angle;
       star.add(ray);
     }
-    star.position.set(x, y, z);
+    star.position.set(x, y, z).multiplyScalar(BOT_RADIUS / BOT_NAV_RADIUS);
     sparkles.add(star);
   }
   sparkles.visible = false;
   bodyPivot.add(sparkles);
 
   const badge = new THREE.Group();
+  badge.scale.setScalar(0.85);
   badge.position.set(0, BOT_BODY_CENTER_Y + BOT_RADIUS + 0.35, 0);
   root.add(badge);
   const icons: Record<'Sleep' | 'Read' | 'Plant' | 'Sit' | 'Light' | 'Admire', THREE.Group> = {
