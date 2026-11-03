@@ -115,6 +115,7 @@ export function createBot() {
 
   let blinkAt = 2.2;
   let blinkCloseUntil = 0;
+  let blinkPairSecond = false;
   let blinkOverride: number | null = null;
   let glanceAt = 0;
   const gazeOffset = new THREE.Vector2();
@@ -305,7 +306,13 @@ export function createBot() {
     const cfg = botLook.eyes;
     if (time >= blinkAt) {
       blinkCloseUntil = time + cfg.blinkClose;
-      scheduleNextBlink(time);
+      if (!blinkPairSecond && Math.random() < cfg.blinkDoubleChance) {
+        blinkAt = blinkCloseUntil + cfg.blinkDoubleGap;
+        blinkPairSecond = true;
+      } else {
+        blinkPairSecond = false;
+        scheduleNextBlink(blinkCloseUntil);
+      }
     }
     const closedRatio = cfg.closedHeight / cfg.openHeight;
     return time < blinkCloseUntil ? closedRatio : 1;
@@ -398,7 +405,15 @@ export function createBot() {
     } else if (state === 'Interact' && activity === 'Admire') {
       yOff = Math.abs(Math.sin(time * 3)) * 0.04;
     } else if (state === 'Sleep') {
-      yOff = Math.sin(time * 0.7) * 0.008;
+      const breathPhase = Math.sin(time * botMotion.idle.sleepBreathHz);
+      yOff = breathPhase * botMotion.idle.sleepBob;
+      scaleY *= 1 + breathPhase * botMotion.idle.sleepBreath;
+      scaleXZ *= 1 - breathPhase * botMotion.idle.sleepBreath;
+    } else if (state === 'Idle') {
+      const breathPhase = Math.sin(time * botMotion.idle.bobHz);
+      yOff = breathPhase * botMotion.idle.bob;
+      scaleY *= 1 + breathPhase * botMotion.idle.breath;
+      scaleXZ *= 1 - breathPhase * botMotion.idle.breath;
     } else {
       yOff = Math.sin(time * botMotion.idle.bobHz) * botMotion.idle.bob;
     }

@@ -19,10 +19,10 @@ export const botMotion = {
     speed: 1.05,
     accel: 4.2,
     decel: 5.5,
-    stepBob: 0.028,
+    stepBob: 0.035,
     stepHz: 9.5,
-    lean: 0.11,
-    turnRate: 7.5,
+    lean: 0.14,
+    turnRate: 6.3,
   },
   jump: {
     duration: 2.35,
@@ -37,8 +37,15 @@ export const botMotion = {
     landSquash: 0.88,
   },
   idle: {
-    bob: 0.015,
-    bobHz: 2.4,
+    bob: 0.019,
+    bobHz: 2.0,
+    breath: 0.028,
+    sleepBob: 0.008,
+    sleepBreath: 0.012,
+    sleepBreathHz: 0.7,
+    faceCameraDelay: 1.2,
+    faceCameraDuration: 0.6,
+    faceCameraOffset: 0.3,
   },
   carry: {
     bob: 0.04,
@@ -64,14 +71,6 @@ export const botMotion = {
     groundY: FLOOR_SURFACE_Y + 0.001,
     baseScale: 0.92,
     airFade: 0.72,
-  },
-  eyes: {
-    blinkMin: 2.4,
-    blinkMax: 6.8,
-    blinkClose: 0.11,
-    doubleBlinkChance: 0.22,
-    lookStrength: 0.028,
-    cameraGlanceChance: 0.004,
   },
   badge: {
     /** Keep icons readable without punching through walls. */
