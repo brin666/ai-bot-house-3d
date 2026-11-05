@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { createPaperPass, syncPaperScale } from './paper';
+import { setSurfaceAnisotropy, setSurfaceCssPixelsPerWorldUnit } from './room-surfaces';
 import { flatMaterial, look } from './look';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import sceneData from './scene.json';
@@ -27,12 +28,13 @@ import type { Interactable } from './interaction-types';
 const app=document.querySelector<HTMLDivElement>('#app')!;
 renderLayout(app);
 const el=(id:string)=>document.getElementById(id)!;const syncActivity=()=>{el('live-activity').textContent=el('status').textContent;el('live-now').textContent=el('status').textContent};new MutationObserver(syncActivity).observe(el('status'),{childList:true,characterData:true,subtree:true});syncActivity(); const store=new Store(sceneData.furniture as Item[]);const nextRoom=()=>nextUnlockCandidate(store.rooms);setActiveRooms(store.rooms);setDecorBlocks(decorLayout(store.rooms).blocks);const migratedLayout=migrateLayout(store.items,store.restoredPending??store.pending,store.rooms);store.items=migratedLayout.items;if(migratedLayout.pending&&!store.items.some(item=>item.id===migratedLayout.pending!.id))store.items.push(migratedLayout.pending);store.pending=null;store.restoredPending=null; const scene=new THREE.Scene();scene.background=new THREE.Color(look.background);
-const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;el('canvas').appendChild(renderer.domElement);
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;el('canvas').appendChild(renderer.domElement);setSurfaceAnisotropy(renderer.capabilities.getMaxAnisotropy());
 const houseCenter=()=>{const b=worldBoundsForRooms(store.rooms);return new THREE.Vector3(b.cx,1,b.cz)};
 const initialCenter=houseCenter();const camera=new THREE.OrthographicCamera(-6,6,6,-6,.1,100);camera.position.copy(initialCenter).add(new THREE.Vector3(12,9,12));camera.lookAt(initialCenter);
 const controls=new OrbitControls(camera,renderer.domElement);controls.target.copy(initialCenter);controls.enablePan=false;controls.minZoom=.65;controls.maxZoom=2;controls.maxPolarAngle=Math.PI/2.2;controls.update();
+function initialSurfaceCssPixelsPerWorldUnit(){const stage=el('canvas'),width=stage.clientWidth||window.innerWidth,height=stage.clientHeight||window.innerHeight,aspect=width/Math.max(1,height);camera.updateMatrixWorld(true);const right=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0),up=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,1),bounds=worldBoundsForRooms(store.rooms);let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;for(const dx of [bounds.minX,bounds.maxX])for(const dz of [bounds.minZ,bounds.maxZ])for(const y of [0,bounds.maxY]){const point=new THREE.Vector3(dx,y,dz).sub(controls.target),x=point.dot(right),v=point.dot(up);minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,v);maxY=Math.max(maxY,v)}const view=Math.max(8,(maxX-minX)/(.92*aspect),(maxY-minY)/.9);return height/view}setSurfaceCssPixelsPerWorldUnit(initialSurfaceCssPixelsPerWorldUnit());
 scene.add(new THREE.AmbientLight(look.light.ambient, look.light.ambientIntensity));scene.add(new THREE.HemisphereLight(look.light.hemiSky, look.light.hemiGround, look.light.hemi));const sun=new THREE.DirectionalLight(look.light.sun, look.light.sunIntensity);sun.position.set(7,10,5);sun.target.position.set(4,0,0);scene.add(sun.target);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-15;sun.shadow.camera.right=15;sun.shadow.camera.top=15;sun.shadow.camera.bottom=-15;sun.shadow.normalBias=.025;sun.shadow.bias=-.0002;scene.add(sun);
-const composer=new EffectComposer(renderer);for(const target of [composer.renderTarget1, composer.renderTarget2]){target.depthTexture=new THREE.DepthTexture(target.width, target.height);}composer.addPass(new RenderPass(scene,camera));const dither=createPaperPass();composer.addPass(dither);
+const composer=new EffectComposer(renderer);for(const target of [composer.renderTarget1, composer.renderTarget2]){target.depthTexture=new THREE.DepthTexture(target.width, target.height);}composer.addPass(new RenderPass(scene,camera));const dither=createPaperPass(scene,camera);composer.addPass(dither);
 function syncComposerDepth(){for(const target of [composer.renderTarget1, composer.renderTarget2]){if(!target.depthTexture)target.depthTexture=new THREE.DepthTexture(target.width, target.height);target.depthTexture.image.width=target.width;target.depthTexture.image.height=target.height;}}
 const M=(c:string)=>flatMaterial(c);function cube(w:number,h:number,d:number,x:number,y:number,z:number,c:string,parent:THREE.Object3D=scene){const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),M(c));mesh.position.set(x,y,z);mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh}
 const activeRooms=()=>sceneData.rooms.filter(room=>store.rooms.includes(room.id));
@@ -113,8 +115,36 @@ let last=performance.now();const gaze=new THREE.Vector3();const moveDir=new THRE
  botView.update(state,activity,clock,camera.quaternion,{moveSpeed,moveDir:moveDir.lengthSq()?moveDir:null,jumpPhase,gaze:gazeTarget,cameraPos:camera.position});
  if(carry&&state==='Carry')carry.position.set(bot.position.x,botMotion.carry.holdY+Math.abs(Math.sin(clock*botMotion.carry.bobHz))*.04,bot.position.z);else if(carry&&state==='Lift'&&pickupSpot){const u=smoothstep(0,1,Math.min(1,(clock-liftStarted)/botMotion.lift.duration));carry.position.set(pickupSpot[0],THREE.MathUtils.lerp(botMotion.lift.startY,botMotion.carry.holdY,u),pickupSpot[1])}else if(carry&&state==='Place'&&pending){const t=Math.min(1,(clock-liftStarted)/botMotion.place.duration),h=smoothstep(0,botMotion.place.horizontalThrough,t),v=smoothstep(botMotion.place.dropStart,1,t);carry.position.set(THREE.MathUtils.lerp(placeFrom[0],pending.x,h),THREE.MathUtils.lerp(botMotion.place.holdY,botMotion.place.endY,v),THREE.MathUtils.lerp(placeFrom[1],pending.z,h))}
  if(mode){liveTarget.set(bot.position.x,BOT_BODY_CENTER_Y,bot.position.z);controls.target.lerp(liveTarget,1-Math.exp(-4*dt));camera.position.copy(controls.target).add(liveCameraOffset)}controls.update();composer.render()};
+/** Read 9 CSS-pixel canvas patches in the default house view. Positive deltas mean the expected wall is darker. */
+function verifySurfaceGradients(){
+ const room=allRooms.find(entry=>entry.id==='room-1');if(!room)throw new Error('room-1 is required for the surface gradient probe');
+ camera.updateMatrixWorld(true);composer.render();
+ const gl=renderer.getContext(),width=gl.drawingBufferWidth,height=gl.drawingBufferHeight;
+ const patchSize=Math.max(3,Math.round(9*renderer.getPixelRatio())|1);
+ const linear=(value:number)=>{const channel=value/255;return channel<=.04045?channel/12.92:Math.pow((channel+.055)/1.055,2.4)};
+ const sample=(world:THREE.Vector3)=>{
+  const ndc=world.clone().project(camera),x=Math.floor((ndc.x*.5+.5)*width),y=Math.floor((ndc.y*.5+.5)*height);
+  if(ndc.z < -1||ndc.z > 1||x<0||x>=width||y<0||y>=height)throw new Error('Surface gradient sample is outside the canvas; reset to the default house view and retry');
+  const left=Math.max(0,Math.min(width-patchSize,x-Math.floor(patchSize/2))),bottom=Math.max(0,Math.min(height-patchSize,y-Math.floor(patchSize/2)));
+  const pixels=new Uint8Array(patchSize*patchSize*4);gl.readPixels(left,bottom,patchSize,patchSize,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
+  let sum=0;for(let i=0;i<pixels.length;i+=4)sum+=.2126*linear(pixels[i])+.7152*linear(pixels[i+1])+.0722*linear(pixels[i+2]);
+  return{luma:sum/(patchSize*patchSize),pixel:{x,y},sampleSize:patchSize};
+ };
+ const [rx,rz]=room.position,[rw,rd]=room.size,northZ=rz-rd/2+.06,westX=rx-rw/2+.06;
+ const northTop=sample(new THREE.Vector3(rx+rw/2-.8,1.98,northZ));
+ const northBottom=sample(new THREE.Vector3(rx+rw/2-.8,.42,northZ));
+ const northMid=sample(new THREE.Vector3(rx+rw/2-.8,1.2,northZ));
+ const westMid=sample(new THREE.Vector3(westX,1.2,rz+rd/2-.8));
+ return{
+  northWall:{topLuma:northTop.luma,bottomLuma:northBottom.luma,bottomDarkening:northTop.luma-northBottom.luma,topSample:northTop,bottomSample:northBottom},
+  wallLighting:{litSide:'west',litLuma:westMid.luma,backLitSide:'north',backLitLuma:northMid.luma,backLitDarkening:westMid.luma-northMid.luma,litSample:westMid,backLitSample:northMid},
+  checks:{bottomDarkerThanTop:northTop.luma>northBottom.luma,backLitDarkerThanLit:westMid.luma>northMid.luma},
+  expected:{bottomDarkeningGreaterThan:0,backLitDarkeningGreaterThan:0},
+ };
+}
 (window as unknown as {__botHouseDebug?:Record<string,unknown>}).__botHouseDebug={
 sample:()=>({state,bot:{x:bot.position.x,y:bot.position.y,z:bot.position.z,ry:bot.rotation.y},carry:carry?{x:carry.position.x,y:carry.position.y,z:carry.position.z}:null,pickupSpot,pending:pending?{x:pending.x,z:pending.z}:null,placeFrom,waypoints:waypoints.slice(0,3),moveSpeed,botRadius:BOT_RADIUS,idleFor,idleTurn,activity,activityTarget,activeInteractableId,lastInteractableId}),
+verifySurfaceGradients,
 listInteractables:()=>interactables.map(target=>({...target,standSpot:[...target.standSpot],standCandidates:target.standCandidates.map(point=>[...point]),facingPoint:[...target.facingPoint]})),
 get interactableCount(){return interactables.length},
 interactablesByRoom:()=>Object.fromEntries(allRooms.filter(room=>room.kind==='indoor').map(room=>[room.id,interactables.filter(target=>target.roomId===room.id).length])),

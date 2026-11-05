@@ -2,10 +2,14 @@ import * as THREE from 'three';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { look } from './look';
 
+export const SURFACE_MASK_LAYER = 1;
+
 const PaperShader = {
   uniforms: {
     tDiffuse: { value: null as THREE.Texture | null },
     tDepth: { value: null as THREE.Texture | null },
+    tSurfaceMask: { value: null as THREE.Texture | null },
+    tSurfaceDepth: { value: null as THREE.DepthTexture | null },
     uResolution: { value: new THREE.Vector2(1, 1) },
     uStrength: { value: look.dither.strength },
     uLevels: { value: look.dither.levels },
@@ -24,6 +28,7 @@ const PaperShader = {
     uColorThreshold: { value: look.outline.colorThreshold },
     uColorStrength: { value: look.outline.colorStrength },
     uThickness: { value: look.outline.thickness },
+    uSurfaceDepthTolerance: { value: 0.00005 },
   },
   vertexShader: /* glsl */ `
     varying vec2 vUv;
@@ -35,6 +40,8 @@ const PaperShader = {
   fragmentShader: /* glsl */ `
     uniform sampler2D tDiffuse;
     uniform sampler2D tDepth;
+    uniform sampler2D tSurfaceMask;
+    uniform sampler2D tSurfaceDepth;
     uniform vec2 uResolution;
     uniform float uStrength;
     uniform float uLevels;
@@ -53,6 +60,7 @@ const PaperShader = {
     uniform float uColorThreshold;
     uniform float uColorStrength;
     uniform float uThickness;
+    uniform float uSurfaceDepthTolerance;
     varying vec2 vUv;
 
     float bayer(vec2 p) {
@@ -99,6 +107,11 @@ const PaperShader = {
 
     void main() {
       vec3 src = texture2D(tDiffuse, vUv).rgb;
+      float surfaceCoverage = texture2D(tSurfaceMask, vUv).r;
+      float sceneDepth = texture2D(tDepth, vUv).r;
+      float surfaceDepth = texture2D(tSurfaceDepth, vUv).r;
+      float depthGap = abs(sceneDepth - surfaceDepth);
+      float surfaceMask = surfaceCoverage * (1.0 - smoothstep(uSurfaceDepthTolerance * 0.08, uSurfaceDepthTolerance, depthGap));
       vec2 px = floor(gl_FragCoord.xy / max(uBlockSize, 1.0));
       float n = bayer(px);
       float noise = fract(sin(dot(px, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
@@ -135,20 +148,83 @@ const PaperShader = {
 
       float edge = clamp(depthEdge * uDepthStrength + colorEdge * uColorStrength, 0.0, 1.0);
       vec3 linearDither = toLinear(dithered);
-      gl_FragColor = vec4(mix(linearDither, uInk, edge), 1.0);
+      vec3 gradedWithoutQuantize = grade(src);
+      vec3 outputColor = mix(linearDither, gradedWithoutQuantize, clamp(surfaceMask, 0.0, 1.0));
+      float surfaceEdge = edge * mix(1.0, 0.28, clamp(surfaceMask, 0.0, 1.0));
+      gl_FragColor = vec4(mix(outputColor, uInk, surfaceEdge), 1.0);
     }
   `,
 };
 
-export function createPaperPass() {
+export function createPaperPass(scene: THREE.Scene, camera: THREE.Camera) {
   const pass = new ShaderPass(PaperShader);
   pass.material.depthTest = false;
   pass.material.depthWrite = false;
+  const maskTarget = new THREE.WebGLRenderTarget(1, 1, {
+    format: THREE.RGBAFormat,
+    type: THREE.UnsignedByteType,
+    minFilter: THREE.NearestFilter,
+    magFilter: THREE.NearestFilter,
+    depthBuffer: true,
+    stencilBuffer: false,
+  });
+  maskTarget.texture.generateMipmaps = false;
+  maskTarget.texture.colorSpace = THREE.NoColorSpace;
+  maskTarget.depthTexture = new THREE.DepthTexture(1, 1, THREE.UnsignedIntType);
+  maskTarget.depthTexture.format = THREE.DepthFormat;
+  maskTarget.depthTexture.minFilter = THREE.NearestFilter;
+  maskTarget.depthTexture.magFilter = THREE.NearestFilter;
+  maskTarget.depthTexture.generateMipmaps = false;
+
+  const maskMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
+  const maskBackground = new THREE.Color(0x000000);
+  const originalSetSize = pass.setSize.bind(pass);
+  pass.setSize = (width: number, height: number) => {
+    maskTarget.setSize(width, height);
+    originalSetSize(width, height);
+  };
+
   const baseRender = pass.render.bind(pass);
   pass.render = (renderer, writeBuffer, readBuffer, deltaTime, maskActive) => {
+    const originalTarget = renderer.getRenderTarget();
+    const originalBackground = scene.background;
+    const originalOverrideMaterial = scene.overrideMaterial;
+    const originalLayerMask = camera.layers.mask;
+    const originalAutoClear = renderer.autoClear;
+    const originalShadowMapEnabled = renderer.shadowMap.enabled;
+    const originalClearColor = renderer.getClearColor(new THREE.Color()).clone();
+    const originalClearAlpha = renderer.getClearAlpha();
+
+    try {
+      scene.background = maskBackground;
+      scene.overrideMaterial = maskMaterial;
+      camera.layers.set(SURFACE_MASK_LAYER);
+      renderer.shadowMap.enabled = false;
+      renderer.autoClear = false;
+      renderer.setRenderTarget(maskTarget);
+      renderer.setClearColor(0x000000, 1);
+      renderer.clear(true, true, true);
+      renderer.render(scene, camera);
+    } finally {
+      scene.background = originalBackground;
+      scene.overrideMaterial = originalOverrideMaterial;
+      camera.layers.mask = originalLayerMask;
+      renderer.shadowMap.enabled = originalShadowMapEnabled;
+      renderer.autoClear = originalAutoClear;
+      renderer.setClearColor(originalClearColor, originalClearAlpha);
+      renderer.setRenderTarget(originalTarget);
+    }
+
     pass.uniforms.tDepth.value = readBuffer.depthTexture;
+    pass.uniforms.tSurfaceMask.value = maskTarget.texture;
+    pass.uniforms.tSurfaceDepth.value = maskTarget.depthTexture;
     pass.uniforms.uResolution.value.set(readBuffer.width, readBuffer.height);
     baseRender(renderer, writeBuffer, readBuffer, deltaTime, maskActive);
+  };
+  pass.dispose = () => {
+    maskTarget.dispose();
+    maskMaterial.dispose();
+    pass.material.dispose();
   };
   return pass;
 }

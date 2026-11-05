@@ -3,6 +3,7 @@ import { flatMaterial, look } from './look';
 import { mergeRoomFloorBoards } from './decor-builder';
 import { rooms as allRooms, type SceneRoom } from './scene-types';
 import { roomSurfaceMaterial } from './room-surfaces';
+import { SURFACE_MASK_LAYER } from './paper';
 
 const WALL_THICKNESS = 0.12;
 const BACK_WALL_HEIGHT = 2.35;
@@ -20,13 +21,21 @@ function cube(
   color: string | THREE.Material,
   parent: THREE.Object3D,
   cast = true,
+  surfaceMask = false,
 ) {
   const material = typeof color === 'string' ? flatMaterial(color) : color;
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
   mesh.position.set(x, y, z);
   if (cast) mesh.castShadow = true;
   mesh.receiveShadow = true;
+  if (surfaceMask) markRoomSurface(mesh);
   parent.add(mesh);
+  return mesh;
+}
+
+function markRoomSurface(mesh: THREE.Mesh) {
+  mesh.userData.surfaceMask = true;
+  mesh.layers.enable(SURFACE_MASK_LAYER);
   return mesh;
 }
 
@@ -69,14 +78,14 @@ function drawRearEdge(room: SceneRoom, side: 'north' | 'west', active: SceneRoom
     const h = shared ? CUTAWAY_SILL_HEIGHT : BACK_WALL_HEIGHT;
     const color = shared
       ? look.palette.lowWall
-      : roomSurfaceMaterial(room.id, 'wallpaper', { wallSide: side });
-    if (north) cube(b - a, h, WALL_THICKNESS, middle, h / 2, edge, color, parent, !shared);
-    else cube(WALL_THICKNESS, h, b - a, edge, h / 2, middle, color, parent, !shared);
+      : roomSurfaceMaterial(room.id, 'wallpaper', { wallSide: side, roomSize: room.size });
+    if (north) cube(b - a, h, WALL_THICKNESS, middle, h / 2, edge, color, parent, !shared, true);
+    else cube(WALL_THICKNESS, h, b - a, edge, h / 2, middle, color, parent, !shared, true);
     if (!shared) {
-      if (north) cube(b - a, .06, .15, middle, h + .03, edge, look.palette.trim, parent, false);
-      else cube(.15, .06, b - a, edge, h + .03, middle, look.palette.trim, parent, false);
-      if (north) cube(b - a, .12, .08, middle, .12, edge + WALL_THICKNESS * .65, BASEBOARD_COLOR, parent, false);
-      else cube(.08, .12, b - a, edge + WALL_THICKNESS * .65, .12, middle, BASEBOARD_COLOR, parent, false);
+      if (north) cube(b - a, .06, .15, middle, h + .03, edge, look.palette.trim, parent, false, true);
+      else cube(.15, .06, b - a, edge, h + .03, middle, look.palette.trim, parent, false, true);
+      if (north) cube(b - a, .12, .08, middle, .12, edge + WALL_THICKNESS * .65, BASEBOARD_COLOR, parent, false, true);
+      else cube(.08, .12, b - a, edge + WALL_THICKNESS * .65, .12, middle, BASEBOARD_COLOR, parent, false, true);
     }
   }
 }
@@ -96,6 +105,7 @@ export function drawRooms(roomGroup: THREE.Group, unlockedIds: string[]) {
       ghost.opacity = 0.22;
       const slab = new THREE.Mesh(new THREE.BoxGeometry(w, 0.08, d), ghost);
       slab.position.set(rx, 0.02, rz);
+      markRoomSurface(slab);
       roomGroup.add(slab);
       const dash = new THREE.LineSegments(
         new THREE.EdgesGeometry(new THREE.BoxGeometry(w, 0.1, d)),
@@ -106,12 +116,12 @@ export function drawRooms(roomGroup: THREE.Group, unlockedIds: string[]) {
       continue;
     }
     if (room.kind === 'pool') {
-      cube(w, 0.14, d, rx, -0.02, rz, '#2a90c8', roomGroup);
+      cube(w, 0.14, d, rx, -0.02, rz, '#2a90c8', roomGroup, true, true);
       cube(w - 0.2, 0.04, d - 0.2, rx, 0.08, rz, '#5ec8f0', roomGroup, false);
       continue;
     }
-    cube(w + 0.16, 0.16, d + 0.16, rx, -0.1, rz, p.slab, roomGroup);
-    cube(w, 0.12, d, rx, 0, rz, roomSurfaceMaterial(room.id, 'floor', { roomSize: room.size }), roomGroup);
+    cube(w + 0.16, 0.16, d + 0.16, rx, -0.1, rz, p.slab, roomGroup, true, true);
+    cube(w, 0.12, d, rx, 0, rz, roomSurfaceMaterial(room.id, 'floor', { roomSize: room.size }), roomGroup, true, true);
     if (room.kind === 'yard') {
       const line = p.floorLines[room.id] ?? p.floorLine;
       const boardCount = Math.max(8, Math.floor(Math.max(w, d) * 2));
