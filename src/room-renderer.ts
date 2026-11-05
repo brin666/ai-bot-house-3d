@@ -8,6 +8,7 @@ const WALL_THICKNESS = 0.12;
 const BACK_WALL_HEIGHT = 2.35;
 const CUTAWAY_SILL_HEIGHT = 0.22;
 const YARD_FENCE_HEIGHT = 1.1;
+const BASEBOARD_COLOR = '#ad9a83';
 
 function cube(
   w: number,
@@ -66,12 +67,16 @@ function drawRearEdge(room: SceneRoom, side: 'north' | 'west', active: SceneRoom
     const shared = spans.find((span) => middle > span.start && middle < span.end);
     if (shared && middle > shared.doorStart && middle < shared.doorEnd) continue;
     const h = shared ? CUTAWAY_SILL_HEIGHT : BACK_WALL_HEIGHT;
-    const color = shared ? look.palette.lowWall : roomSurfaceMaterial(room.id, 'wallpaper');
+    const color = shared
+      ? look.palette.lowWall
+      : roomSurfaceMaterial(room.id, 'wallpaper', { wallSide: side });
     if (north) cube(b - a, h, WALL_THICKNESS, middle, h / 2, edge, color, parent, !shared);
     else cube(WALL_THICKNESS, h, b - a, edge, h / 2, middle, color, parent, !shared);
     if (!shared) {
       if (north) cube(b - a, .06, .15, middle, h + .03, edge, look.palette.trim, parent, false);
       else cube(.15, .06, b - a, edge, h + .03, middle, look.palette.trim, parent, false);
+      if (north) cube(b - a, .12, .08, middle, .12, edge + WALL_THICKNESS * .65, BASEBOARD_COLOR, parent, false);
+      else cube(.08, .12, b - a, edge + WALL_THICKNESS * .65, .12, middle, BASEBOARD_COLOR, parent, false);
     }
   }
 }
@@ -85,7 +90,6 @@ export function drawRooms(roomGroup: THREE.Group, unlockedIds: string[]) {
     const [rx, rz] = room.position;
     const [w, d] = room.size;
     const floor = p.floors[room.id] ?? room.floor;
-    const line = p.floorLines[room.id] ?? p.floorLine;
     if (!active) {
       const ghost = flatMaterial(floor);
       ghost.transparent = true;
@@ -107,10 +111,11 @@ export function drawRooms(roomGroup: THREE.Group, unlockedIds: string[]) {
       continue;
     }
     cube(w + 0.16, 0.16, d + 0.16, rx, -0.1, rz, p.slab, roomGroup);
-    cube(w, 0.12, d, rx, 0, rz, roomSurfaceMaterial(room.id, 'floor'), roomGroup);
-    const boardCount = Math.max(8, Math.floor(Math.max(w, d) * 2));
-    mergeRoomFloorBoards(roomGroup, rx, rz, w, d, line, boardCount);
+    cube(w, 0.12, d, rx, 0, rz, roomSurfaceMaterial(room.id, 'floor', { roomSize: room.size }), roomGroup);
     if (room.kind === 'yard') {
+      const line = p.floorLines[room.id] ?? p.floorLine;
+      const boardCount = Math.max(8, Math.floor(Math.max(w, d) * 2));
+      mergeRoomFloorBoards(roomGroup, rx, rz, w, d, line, boardCount);
       const posts = Math.floor(w / 2);
       const postMat = flatMaterial(p.trim);
       const farPosts = new THREE.InstancedMesh(

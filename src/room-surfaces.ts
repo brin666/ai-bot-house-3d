@@ -2,178 +2,373 @@ import * as THREE from 'three';
 import { look } from './look';
 
 type SurfaceKind = 'wallpaper' | 'floor';
+type WallSide = 'north' | 'west';
 type Pattern =
-  | 'flowers' | 'stripes' | 'plaid' | 'polka' | 'diamonds' | 'stars' | 'waves' | 'sprinkles' | 'leaves' | 'arches'
-  | 'planks' | 'checker' | 'tiles' | 'carpet' | 'parquet' | 'grid' | 'mosaic' | 'brick' | 'basket' | 'entry';
-
-type SurfaceStyle = { pattern: Pattern; base: string; accent: string; detail: string };
+  | 'flowers' | 'stripes' | 'plaid' | 'polka' | 'diamonds' | 'stars' | 'waves' | 'sprinkles' | 'leaves' | 'arches' | 'wainscoting'
+  | 'planks' | 'checker' | 'tiles' | 'carpet' | 'concrete' | 'grid' | 'entry';
+type SurfaceStyle = { pattern: Pattern; base: string; accent: string };
+type SurfaceOptions = { wallSide?: WallSide; roomSize?: [number, number] };
 
 const wallpaperStyles: Record<string, SurfaceStyle> = {
-  'room-1': { pattern: 'flowers', base: '#ffeab4', accent: '#ed7f6b', detail: '#3b9a67' },
-  'room-2': { pattern: 'stripes', base: '#b7edc9', accent: '#45aa80', detail: '#f7dc74' },
-  'room-3': { pattern: 'polka', base: '#ffc69a', accent: '#df694f', detail: '#fff0c8' },
-  'room-4': { pattern: 'diamonds', base: '#d2eff0', accent: '#438da0', detail: '#ef8b69' },
-  'room-5': { pattern: 'stars', base: '#f8c2d7', accent: '#bd5b83', detail: '#f2c44b' },
-  'room-6': { pattern: 'plaid', base: '#ded2f4', accent: '#8170bb', detail: '#f0a16e' },
-  'room-7': { pattern: 'waves', base: '#c6eee2', accent: '#4f9c91', detail: '#f8d87b' },
-  'room-8': { pattern: 'sprinkles', base: '#eee9df', accent: '#c47b45', detail: '#4d91a0' },
-  'room-9': { pattern: 'leaves', base: '#f5dfbd', accent: '#568b58', detail: '#e68167' },
-  'room-10': { pattern: 'arches', base: '#ffedc9', accent: '#d48750', detail: '#3c8f95' },
+  'room-1': { pattern: 'flowers', base: '#f0e6d0', accent: '#e2d4b8' },
+  'room-2': { pattern: 'wainscoting', base: '#e4efe3', accent: '#d3e3d1' },
+  'room-3': { pattern: 'polka', base: '#f2e4d8', accent: '#e5d3c4' },
+  'room-4': { pattern: 'diamonds', base: '#e4eef1', accent: '#d2e2e7' },
+  'room-5': { pattern: 'stars', base: '#f0e2e8', accent: '#e3d1da' },
+  'room-6': { pattern: 'plaid', base: '#ebe5f2', accent: '#ddd4ea' },
+  'room-7': { pattern: 'waves', base: '#e3efe9', accent: '#d1e3da' },
+  'room-8': { pattern: 'sprinkles', base: '#ebe9e3', accent: '#ddd9d0' },
+  'room-9': { pattern: 'leaves', base: '#f0e7d8', accent: '#e2d6c2' },
+  'room-10': { pattern: 'arches', base: '#f1ead9', accent: '#e3d8c2' },
 };
 
 const floorStyles: Record<string, SurfaceStyle> = {
-  'room-1': { pattern: 'planks', base: '#f7d968', accent: '#d9a83a', detail: '#f8e9a1' },
-  'room-2': { pattern: 'checker', base: '#78d59a', accent: '#b8edac', detail: '#398b69' },
-  'room-3': { pattern: 'tiles', base: '#f4af7c', accent: '#ffe0aa', detail: '#d97b55' },
-  'room-4': { pattern: 'parquet', base: '#bce5e9', accent: '#6cb7c1', detail: '#f1f0d5' },
-  'room-5': { pattern: 'carpet', base: '#ed9abd', accent: '#f7c5d4', detail: '#b85e88' },
-  'room-6': { pattern: 'grid', base: '#c9b9ec', accent: '#a497d2', detail: '#766db0' },
-  'room-7': { pattern: 'mosaic', base: '#9edbcd', accent: '#e4ecb0', detail: '#4f9b91' },
-  'room-8': { pattern: 'brick', base: '#d7d2c8', accent: '#b7b1a7', detail: '#f0e8d4' },
-  'room-9': { pattern: 'basket', base: '#edcfaa', accent: '#d8a875', detail: '#f8e6c8' },
-  'room-10': { pattern: 'entry', base: '#f6d9a6', accent: '#e3a765', detail: '#f9edce' },
+  'room-1': { pattern: 'planks', base: '#e6d7b4', accent: '#d5c39a' },
+  'room-2': { pattern: 'checker', base: '#cfe3cf', accent: '#bdd6bc' },
+  'room-3': { pattern: 'tiles', base: '#e7d0b8', accent: '#d6bda2' },
+  'room-4': { pattern: 'grid', base: '#d0e2e7', accent: '#bcd3da' },
+  'room-5': { pattern: 'carpet', base: '#e6d0da', accent: '#d5bdc9' },
+  'room-6': { pattern: 'planks', base: '#d9d2e6', accent: '#c7bed8' },
+  'room-7': { pattern: 'carpet', base: '#d0e4db', accent: '#bcd6cb' },
+  'room-8': { pattern: 'concrete', base: '#ddd9d0', accent: '#ccc7bc' },
+  'room-9': { pattern: 'planks', base: '#e5d6c0', accent: '#d4c3a8' },
+  'room-10': { pattern: 'entry', base: '#e8d9c0', accent: '#d7c6aa' },
 };
 
+const WALL_INK = '#344955';
 const textures = new Map<string, THREE.CanvasTexture>();
 const materials = new Map<string, THREE.MeshLambertMaterial>();
 
-function drawPattern(ctx: CanvasRenderingContext2D, style: SurfaceStyle) {
-  const { pattern, base, accent, detail } = style;
-  ctx.fillStyle = base;
-  ctx.fillRect(0, 0, 64, 64);
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = accent;
-  ctx.fillStyle = accent;
-
-  if (pattern === 'flowers') {
-    for (const [x, y] of [[8, 9], [24, 25], [40, 9], [56, 25], [8, 41], [40, 57]] as const) {
-      for (let i = 0; i < 4; i++) {
-        const a = i * Math.PI / 2;
-        ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * 3, y + Math.sin(a) * 3, 2.2, 3, a, 0, Math.PI * 2); ctx.fill();
-      }
-      ctx.fillStyle = detail; ctx.beginPath(); ctx.arc(x, y, 1.7, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = accent;
-    }
-  } else if (pattern === 'stripes') {
-    for (let x = 5; x < 64; x += 12) { ctx.fillRect(x, 0, 3, 64); ctx.fillStyle = detail; ctx.fillRect(x + 4, 0, 1, 64); ctx.fillStyle = accent; }
-  } else if (pattern === 'plaid') {
-    ctx.globalAlpha = 0.62;
-    for (let p = 7; p < 64; p += 16) { ctx.fillRect(p, 0, 4, 64); ctx.fillRect(0, p, 4, 64); }
-    ctx.globalAlpha = 0.45; ctx.fillStyle = detail;
-    for (let p = 15; p < 64; p += 16) { ctx.fillRect(p, 0, 2, 64); ctx.fillRect(0, p, 2, 64); }
-    ctx.globalAlpha = 1;
-  } else if (pattern === 'polka') {
-    for (let y = 8; y < 64; y += 16) for (let x = (y % 32 ? 8 : 16); x < 64; x += 16) {
-      ctx.beginPath(); ctx.arc(x, y, 3.2, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = detail; ctx.beginPath(); ctx.arc(x + 1, y - 1, 1, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = accent;
-    }
-  } else if (pattern === 'diamonds') {
-    for (let y = -32; y < 96; y += 16) for (let x = -32; x < 96; x += 16) {
-      ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 5); ctx.lineTo(x - 5, y); ctx.closePath(); ctx.stroke();
-    }
-    ctx.fillStyle = detail; for (let y = 8; y < 64; y += 32) for (let x = 8; x < 64; x += 32) ctx.fillRect(x - 1, y - 1, 2, 2);
-  } else if (pattern === 'stars') {
-    for (let y = 6; y < 64; y += 16) for (let x = (y % 32 ? 7 : 15); x < 64; x += 16) {
-      ctx.fillStyle = accent; ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 1.5, y - 1.5); ctx.lineTo(x + 5, y); ctx.lineTo(x + 1.5, y + 1.5); ctx.lineTo(x, y + 5); ctx.lineTo(x - 1.5, y + 1.5); ctx.lineTo(x - 5, y); ctx.lineTo(x - 1.5, y - 1.5); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = detail; ctx.fillRect(x - 1, y - 1, 2, 2);
-    }
-  } else if (pattern === 'waves') {
-    for (let y = 6; y < 64; y += 14) {
-      ctx.beginPath(); ctx.moveTo(0, y);
-      for (let x = 0; x < 64; x += 16) {
-        ctx.quadraticCurveTo(x + 4, y - 6, x + 8, y);
-        ctx.quadraticCurveTo(x + 12, y + 6, x + 16, y);
-      }
-      ctx.stroke();
-    }
-    ctx.fillStyle = detail; for (let x = 8; x < 64; x += 24) { ctx.beginPath(); ctx.arc(x, (x * 3) % 48 + 8, 1.5, 0, Math.PI * 2); ctx.fill(); }
-  } else if (pattern === 'sprinkles') {
-    for (let y = 7; y < 64; y += 14) for (let x = (y % 28 ? 5 : 12); x < 64; x += 14) {
-      ctx.save(); ctx.translate(x, y); ctx.rotate(((x + y) % 5 - 2) * 0.18); ctx.fillStyle = (x + y) % 2 ? accent : detail; ctx.fillRect(-1.5, -4, 3, 8); ctx.restore();
-    }
-  } else if (pattern === 'leaves') {
-    for (let y = 4; y < 64; y += 18) for (let x = (y % 36 ? 8 : 17); x < 64; x += 18) {
-      ctx.save(); ctx.translate(x, y); ctx.rotate((x + y) % 2 ? -0.6 : 0.6); ctx.beginPath(); ctx.ellipse(0, 0, 3, 6, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = detail; ctx.beginPath(); ctx.moveTo(0, -4); ctx.lineTo(0, 4); ctx.stroke(); ctx.restore();
-    }
-  } else if (pattern === 'arches') {
-    for (let x = 4; x < 64; x += 16) {
-      ctx.beginPath(); ctx.moveTo(x, 62); ctx.lineTo(x, 21); ctx.quadraticCurveTo(x, 4, x + 6, 4); ctx.quadraticCurveTo(x + 12, 4, x + 12, 21); ctx.lineTo(x + 12, 62); ctx.stroke();
-      ctx.fillStyle = detail; ctx.beginPath(); ctx.arc(x + 6, 24, 2, 0, Math.PI * 2); ctx.fill();
-    }
-  } else if (pattern === 'planks') {
-    for (let y = 0; y < 64; y += 16) {
-      ctx.fillStyle = y % 32 ? detail : base; ctx.fillRect(0, y, 64, 15);
-      ctx.strokeStyle = accent; ctx.beginPath(); ctx.moveTo(0, y + 15); ctx.lineTo(64, y + 15); ctx.stroke();
-      const offset = y % 32 ? 16 : 0;
-      for (let x = offset; x < 64; x += 32) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 15); ctx.stroke(); }
-    }
-  } else if (pattern === 'checker') {
-    for (let y = 0; y < 64; y += 16) for (let x = 0; x < 64; x += 16) if ((x + y) % 32 === 0) ctx.fillRect(x, y, 16, 16);
-  } else if (pattern === 'tiles' || pattern === 'grid' || pattern === 'mosaic' || pattern === 'entry') {
-    const step = pattern === 'mosaic' ? 12 : 16;
-    ctx.strokeStyle = accent;
-    for (let y = 0; y <= 64; y += step) for (let x = 0; x <= 64; x += step) {
-      ctx.strokeRect(x + 1, y + 1, step - 2, step - 2);
-      if (pattern === 'mosaic' && (x + y) % 3 === 0) { ctx.fillStyle = detail; ctx.fillRect(x + 3, y + 3, 3, 3); }
-      if (pattern === 'entry' && (x / step + y / step) % 2 === 0) { ctx.fillStyle = detail; ctx.fillRect(x + 5, y + 5, step - 10, step - 10); }
-    }
-    if (pattern === 'tiles') { ctx.fillStyle = detail; for (let y = 8; y < 64; y += 16) for (let x = 8; x < 64; x += 16) ctx.fillRect(x - 1, y - 1, 2, 2); }
-  } else if (pattern === 'parquet') {
-    for (let y = 0; y < 64; y += 16) for (let x = 0; x < 64; x += 16) {
-      ctx.fillStyle = ((x + y) / 16) % 2 ? base : accent; ctx.fillRect(x + 1, y + 1, 14, 14);
-      ctx.strokeStyle = detail; ctx.beginPath(); ctx.moveTo(x + 3, y + 13); ctx.lineTo(x + 13, y + 3); ctx.stroke();
-    }
-  } else if (pattern === 'carpet') {
-    ctx.strokeStyle = accent;
-    for (let x = -64; x < 128; x += 12) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + 64, 64); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x, 64); ctx.lineTo(x + 64, 0); ctx.stroke(); }
-    ctx.fillStyle = detail; for (let y = 8; y < 64; y += 16) for (let x = 8; x < 64; x += 16) ctx.fillRect(x - 1, y - 1, 2, 2);
-  } else if (pattern === 'brick') {
-    ctx.strokeStyle = accent;
-    for (let y = 0; y < 64; y += 16) {
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(64, y); ctx.stroke();
-      const offset = y % 32 ? 16 : 0;
-      for (let x = offset; x < 64; x += 32) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 16); ctx.stroke(); }
-    }
-    ctx.fillStyle = detail; ctx.globalAlpha = 0.45; for (let y = 4; y < 64; y += 16) for (let x = 6; x < 64; x += 32) ctx.fillRect(x, y, 5, 2); ctx.globalAlpha = 1;
-  } else if (pattern === 'basket') {
-    ctx.strokeStyle = accent;
-    for (let p = 4; p < 64; p += 12) { ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, 64); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(64, p); ctx.stroke(); }
-    ctx.fillStyle = detail; for (let y = 7; y < 64; y += 24) for (let x = 7; x < 64; x += 24) ctx.fillRect(x - 1, y - 1, 3, 3);
-  }
+function mixColor(first: string, second: string, amount: number) {
+  const channel = (color: string, index: number) => parseInt(color.slice(index, index + 2), 16);
+  const toHex = (value: number) => Math.round(value).toString(16).padStart(2, '0');
+  return '#' + [1, 3, 5].map((index) => toHex(channel(first, index) * (1 - amount) + channel(second, index) * amount)).join('');
 }
 
-function textureFor(roomId: string, kind: SurfaceKind) {
-  const key = `${roomId}:${kind}`;
+function rgbaColor(color: string, alpha: number) {
+  const channels = [1, 3, 5].map((index) => parseInt(color.slice(index, index + 2), 16)).join(', ');
+  return 'rgba(' + channels + ', ' + alpha + ')';
+}
+
+function randomFor(seed: string) {
+  let state = 2166136261;
+  for (let i = 0; i < seed.length; i++) state = Math.imul(state ^ seed.charCodeAt(i), 16777619);
+  return () => {
+    state += 0x6d2b79f5;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function wobblyLine(
+  ctx: CanvasRenderingContext2D,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  random: () => number,
+  jitter: number,
+) {
+  const horizontal = Math.abs(x2 - x1) >= Math.abs(y2 - y1);
+  const length = Math.hypot(x2 - x1, y2 - y1);
+  const steps = Math.max(2, Math.ceil(length / 24));
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  for (let step = 1; step < steps; step++) {
+    const t = step / steps;
+    const x = x1 + (x2 - x1) * t + (horizontal ? 0 : (random() - 0.5) * jitter);
+    const y = y1 + (y2 - y1) * t + (horizontal ? (random() - 0.5) * jitter : 0);
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+}
+
+function drawWallPattern(ctx: CanvasRenderingContext2D, style: SurfaceStyle, seed: string, wallSide: WallSide) {
+  const { width, height } = ctx.canvas;
+  const random = randomFor(seed);
+  const wallStyle = wallSide === 'north'
+    ? {
+      ...style,
+      base: mixColor(style.base, '#e6edef', 0.05),
+      accent: mixColor(style.accent, '#e1e9eb', 0.05),
+    }
+    : style;
+  const tint = mixColor(wallStyle.base, wallStyle.accent, 0.45);
+  const faintInk = mixColor(wallStyle.base, WALL_INK, 0.18);
+
+  ctx.fillStyle = wallStyle.base;
+  ctx.fillRect(0, 0, width, height);
+
+  const floorGradient = ctx.createLinearGradient(0, height * 0.58, 0, height);
+  floorGradient.addColorStop(0, 'rgba(49, 60, 64, 0)');
+  floorGradient.addColorStop(1, 'rgba(49, 60, 64, 0.05)');
+  ctx.fillStyle = floorGradient;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.save();
+  ctx.strokeStyle = faintInk;
+  ctx.fillStyle = tint;
+  ctx.lineWidth = 1;
+
+  if (style.pattern === 'stripes') {
+    ctx.globalAlpha = 0.1;
+    for (let x = 18; x < width; x += 48) ctx.fillRect(x, 0, 4, height);
+  } else if (style.pattern === 'wainscoting') {
+    const railY = Math.round(height * 0.66);
+    ctx.globalAlpha = 0.11;
+    ctx.fillRect(0, railY, width, height - railY);
+    ctx.globalAlpha = 0.15;
+    wobblyLine(ctx, 0, railY, width, railY, random, 0.45);
+    wobblyLine(ctx, 0, railY + 3, width, railY + 3, random, 0.35);
+    for (let x = 32; x < width; x += 48) wobblyLine(ctx, x, railY + 5, x, height, random, 0.4);
+  } else if (style.pattern === 'flowers') {
+    ctx.globalAlpha = 0.15;
+    for (let y = 40; y < height; y += 88) for (let x = 38; x < width; x += 88) {
+      for (let petal = 0; petal < 4; petal++) {
+        const angle = petal * Math.PI / 2;
+        ctx.beginPath();
+        ctx.ellipse(x + Math.cos(angle) * 3, y + Math.sin(angle) * 3, 1.6, 2.2, angle, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.beginPath();
+      ctx.arc(x, y, 1, 0, Math.PI * 2);
+      ctx.fillStyle = faintInk;
+      ctx.fill();
+      ctx.fillStyle = tint;
+    }
+  } else if (style.pattern === 'polka') {
+    ctx.globalAlpha = 0.14;
+    for (let y = 28; y < height; y += 56) for (let x = 28 + (y % 112 ? 0 : 28); x < width; x += 56) {
+      ctx.beginPath();
+      ctx.arc(x, y, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (style.pattern === 'diamonds') {
+    ctx.globalAlpha = 0.12;
+    for (let y = 0; y < height + 64; y += 64) for (let x = 0; x < width + 64; x += 64) {
+      ctx.beginPath();
+      ctx.moveTo(x, y - 5);
+      ctx.lineTo(x + 5, y);
+      ctx.lineTo(x, y + 5);
+      ctx.lineTo(x - 5, y);
+      ctx.closePath();
+      ctx.stroke();
+    }
+  } else if (style.pattern === 'stars') {
+    ctx.globalAlpha = 0.12;
+    for (let y = 28; y < height; y += 72) for (let x = 28 + (y % 144 ? 0 : 36); x < width; x += 72) {
+      ctx.beginPath();
+      ctx.moveTo(x - 3, y);
+      ctx.lineTo(x + 3, y);
+      ctx.moveTo(x, y - 3);
+      ctx.lineTo(x, y + 3);
+      ctx.stroke();
+    }
+  } else if (style.pattern === 'plaid') {
+    ctx.globalAlpha = 0.06;
+    for (let p = 24; p < width; p += 64) {
+      ctx.fillRect(p, 0, 2, height);
+      ctx.fillRect(0, p, width, 2);
+    }
+  } else if (style.pattern === 'waves') {
+    ctx.globalAlpha = 0.11;
+    for (let y = 28; y < height; y += 52) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      for (let x = 0; x < width; x += 24) ctx.quadraticCurveTo(x + 6, y - 3.5, x + 12, y);
+      ctx.stroke();
+    }
+  } else if (style.pattern === 'sprinkles') {
+    ctx.globalAlpha = 0.13;
+    for (let i = 0; i < 18; i++) {
+      const x = random() * width;
+      const y = random() * height;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate((random() - 0.5) * 0.7);
+      ctx.fillRect(-0.8, -2.5, 1.6, 5);
+      ctx.restore();
+    }
+  } else if (style.pattern === 'leaves') {
+    ctx.globalAlpha = 0.12;
+    for (let y = 42; y < height; y += 88) for (let x = 42; x < width; x += 88) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate((x + y) % 2 ? -0.5 : 0.5);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 2, 4.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  } else if (style.pattern === 'arches') {
+    ctx.globalAlpha = 0.1;
+    for (let x = 16; x < width; x += 64) {
+      ctx.beginPath();
+      ctx.moveTo(x, height);
+      ctx.lineTo(x, height * 0.34);
+      ctx.quadraticCurveTo(x, height * 0.19, x + 16, height * 0.19);
+      ctx.quadraticCurveTo(x + 32, height * 0.19, x + 32, height * 0.34);
+      ctx.lineTo(x + 32, height);
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawFloorPattern(ctx: CanvasRenderingContext2D, style: SurfaceStyle, seed: string) {
+  const { width, height } = ctx.canvas;
+  const random = randomFor(seed);
+  ctx.fillStyle = style.base;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.save();
+  if (style.pattern === 'planks') {
+    let y = 0;
+    let row = 0;
+    while (y < height) {
+      const rowHeight = 70 + random() * 12;
+      const bandHeight = Math.min(rowHeight, height - y);
+      const occasionalDarkPlank = row % 7 === 5;
+      const plankTone = mixColor(style.base, '#000000', occasionalDarkPlank ? 0.06 : row % 2 ? 0.035 : 0);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = plankTone;
+      ctx.fillRect(0, y, width, bandHeight);
+
+      // Stagger small, softened end-joints without drawing continuous seams.
+      ctx.fillStyle = mixColor(plankTone, '#000000', 0.08);
+      ctx.globalAlpha = 0.35;
+      let joint = (row % 2 ? 112 : 42) + random() * 28;
+      while (joint < width) {
+        ctx.fillRect(joint, y + bandHeight * 0.34, 2, Math.min(8, bandHeight * 0.18));
+        joint += 150 + random() * 48;
+      }
+      y += rowHeight;
+      row++;
+    }
+  } else if (style.pattern === 'checker') {
+    const cell = 112;
+    for (let y = 0, row = 0; y < height; y += cell, row++) {
+      for (let x = 0, column = 0; x < width; x += cell, column++) {
+        if ((row + column) % 2 === 0) {
+          ctx.fillStyle = style.accent;
+          ctx.globalAlpha = 0.1;
+          ctx.fillRect(x, y, cell, cell);
+        }
+      }
+    }
+  } else if (style.pattern === 'tiles' || style.pattern === 'grid' || style.pattern === 'entry') {
+    const cell = style.pattern === 'entry' ? 112 : 128;
+    ctx.fillStyle = style.accent;
+    ctx.globalAlpha = 0.2;
+    for (let y = 0; y < height; y += cell) {
+      for (let x = 0; x < width; x += cell) {
+        const right = Math.min(width, x + cell);
+        const bottom = Math.min(height, y + cell);
+        for (const [dotX, dotY] of [
+          [x + 6, y + 6],
+          [right - 6, y + 6],
+          [x + 6, bottom - 6],
+          [right - 6, bottom - 6],
+        ]) {
+          ctx.beginPath();
+          ctx.arc(dotX, dotY, 1.25, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+  } else if (style.pattern === 'carpet' || style.pattern === 'concrete') {
+    ctx.fillStyle = style.accent;
+    ctx.globalAlpha = 0.12;
+    const count = Math.floor((width * height) / 1100);
+    for (let i = 0; i < count; i++) {
+      ctx.beginPath();
+      ctx.arc(random() * width, random() * height, 0.45 + random() * 0.25, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function addFloorEdgeTreatment(ctx: CanvasRenderingContext2D, style: SurfaceStyle) {
+  const { width, height } = ctx.canvas;
+  const edge = Math.max(8, Math.min(width, height) * 0.07);
+  const shadowTint = mixColor(style.base, '#000000', 0.8);
+  ctx.save();
+  const gradients = [
+    { gradient: ctx.createLinearGradient(0, 0, edge, 0), x: 0, y: 0, w: edge, h: height },
+    { gradient: ctx.createLinearGradient(width, 0, width - edge, 0), x: width - edge, y: 0, w: edge, h: height },
+    { gradient: ctx.createLinearGradient(0, 0, 0, edge), x: 0, y: 0, w: width, h: edge },
+    { gradient: ctx.createLinearGradient(0, height, 0, height - edge), x: 0, y: height - edge, w: width, h: edge },
+  ];
+  for (const { gradient, x, y, w, h } of gradients) {
+    gradient.addColorStop(0, rgbaColor(shadowTint, 0.07));
+    gradient.addColorStop(0.7, rgbaColor(shadowTint, 0.02));
+    gradient.addColorStop(1, rgbaColor(shadowTint, 0));
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x, y, w, h);
+  }
+  ctx.globalAlpha = 0.2;
+  ctx.strokeStyle = style.accent;
+  ctx.lineWidth = 0.8;
+  ctx.strokeRect(0.4, 0.4, width - 0.8, height - 0.8);
+  ctx.restore();
+}
+
+function textureFor(
+  roomId: string,
+  kind: SurfaceKind,
+  roomSize: [number, number] = [8, 8],
+  wallSide: WallSide = 'north',
+) {
+  const key = roomId + ':' + kind + (kind === 'wallpaper' ? ':' + wallSide : '');
   let texture = textures.get(key);
   if (texture) return texture;
   const style = (kind === 'floor' ? floorStyles : wallpaperStyles)[roomId];
   if (!style) return null;
+
   const canvas = document.createElement('canvas');
-  canvas.width = 64;
-  canvas.height = 64;
+  canvas.width = kind === 'floor' ? Math.max(128, Math.round(roomSize[0] * 64)) : 256;
+  canvas.height = kind === 'floor' ? Math.max(128, Math.round(roomSize[1] * 64)) : 256;
   const context = canvas.getContext('2d');
   if (!context) return null;
-  drawPattern(context, style);
+  if (kind === 'floor') {
+    drawFloorPattern(context, style, roomId);
+    addFloorEdgeTreatment(context, style);
+  } else {
+    drawWallPattern(context, style, roomId, wallSide);
+  }
+
   texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(kind === 'floor' ? 5 : 3, kind === 'floor' ? 5 : 2);
-  texture.magFilter = THREE.NearestFilter;
-  texture.minFilter = THREE.NearestFilter;
+  texture.wrapS = kind === 'floor' ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping;
+  texture.wrapT = kind === 'floor' ? THREE.ClampToEdgeWrapping : THREE.ClampToEdgeWrapping;
+  texture.repeat.set(kind === 'floor' ? 1 : 3, 1);
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearFilter;
   texture.generateMipmaps = false;
   texture.needsUpdate = true;
   textures.set(key, texture);
   return texture;
 }
 
-export function roomSurfaceMaterial(roomId: string, kind: SurfaceKind) {
-  const key = `${roomId}:${kind}`;
+export function roomSurfaceMaterial(roomId: string, kind: SurfaceKind, options: SurfaceOptions = {}) {
+  const wallSide = kind === 'wallpaper' ? options.wallSide ?? 'north' : undefined;
+  const key = roomId + ':' + kind + ':' + (wallSide ?? 'default');
   let material = materials.get(key);
   if (!material) {
-    const texture = textureFor(roomId, kind);
-    if (!texture) return new THREE.MeshLambertMaterial({ color: kind === 'floor' ? look.palette.floors[roomId] : look.palette.wall });
-    material = new THREE.MeshLambertMaterial({ map: texture, color: '#ffffff' });
+    const texture = textureFor(roomId, kind, options.roomSize, wallSide ?? 'north');
+    if (!texture) {
+      const color = kind === 'floor'
+        ? look.palette.floors[roomId]
+        : wallSide === 'north' ? '#f2f0eb' : '#faf7f1';
+      return new THREE.MeshLambertMaterial({ color });
+    }
+    const color = '#ffffff';
+    material = new THREE.MeshLambertMaterial({ map: texture, color });
     materials.set(key, material);
   }
   return material;
