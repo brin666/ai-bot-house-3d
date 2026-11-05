@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { flatMaterial, look } from './look';
 import { mergeRoomFloorBoards } from './decor-builder';
 import { rooms as allRooms, type SceneRoom } from './scene-types';
+import { roomSurfaceMaterial } from './room-surfaces';
 
 const WALL_THICKNESS = 0.12;
 const BACK_WALL_HEIGHT = 2.35;
@@ -15,11 +16,12 @@ function cube(
   x: number,
   y: number,
   z: number,
-  color: string,
+  color: string | THREE.Material,
   parent: THREE.Object3D,
   cast = true,
 ) {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), flatMaterial(color));
+  const material = typeof color === 'string' ? flatMaterial(color) : color;
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
   mesh.position.set(x, y, z);
   if (cast) mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -64,7 +66,7 @@ function drawRearEdge(room: SceneRoom, side: 'north' | 'west', active: SceneRoom
     const shared = spans.find((span) => middle > span.start && middle < span.end);
     if (shared && middle > shared.doorStart && middle < shared.doorEnd) continue;
     const h = shared ? CUTAWAY_SILL_HEIGHT : BACK_WALL_HEIGHT;
-    const color = shared ? look.palette.lowWall : north ? look.palette.wall : look.palette.wallSide;
+    const color = shared ? look.palette.lowWall : roomSurfaceMaterial(room.id, 'wallpaper');
     if (north) cube(b - a, h, WALL_THICKNESS, middle, h / 2, edge, color, parent, !shared);
     else cube(WALL_THICKNESS, h, b - a, edge, h / 2, middle, color, parent, !shared);
     if (!shared) {
@@ -105,7 +107,7 @@ export function drawRooms(roomGroup: THREE.Group, unlockedIds: string[]) {
       continue;
     }
     cube(w + 0.16, 0.16, d + 0.16, rx, -0.1, rz, p.slab, roomGroup);
-    cube(w, 0.12, d, rx, 0, rz, floor, roomGroup);
+    cube(w, 0.12, d, rx, 0, rz, roomSurfaceMaterial(room.id, 'floor'), roomGroup);
     const boardCount = Math.max(8, Math.floor(Math.max(w, d) * 2));
     mergeRoomFloorBoards(roomGroup, rx, rz, w, d, line, boardCount);
     if (room.kind === 'yard') {

@@ -37,6 +37,16 @@ export class DecorBuilder {
     this.geos.set(color, list);
   }
 
+  cone(radius: number, h: number, x: number, y: number, z: number, color: string, seg = 10) {
+    const g = new THREE.ConeGeometry(radius, h, seg, 1);
+    g.translate(0, h / 2, 0);
+    _m.compose(_p.set(x, y, z), _q.identity(), _s);
+    g.applyMatrix4(_m);
+    const list = this.geos.get(color) ?? [];
+    list.push(g);
+    this.geos.set(color, list);
+  }
+
   sphere(r: number, x: number, y: number, z: number, color: string) {
     const g = new THREE.SphereGeometry(r, 10, 8);
     _m.compose(_p.set(x, y, z), _q.identity(), _s);
