@@ -1,0 +1,42 @@
+{
+  "headless": true,
+  "pass4BaselineMeshes": 458,
+  "perf": {
+    "beforeDecorMeshes": 172,
+    "afterDecorMeshes": 229,
+    "visibleMeshes": 251,
+    "bench": {
+      "calls": 1,
+      "triangles": 1,
+      "frameTimeMs": 114.09555555555141
+    }
+  },
+  "eyeAudit": [
+    {
+      "yaw": 0,
+      "count": 2,
+      "visibleProbe": 0
+    },
+    {
+      "yaw": 0.7853981633974483,
+      "count": 2,
+      "visibleProbe": 0
+    },
+    {
+      "yaw": 1.5707963267948966,
+      "count": 2,
+      "visibleProbe": 0
+    },
+    {
+      "yaw": 2.356194490192345,
+      "count": 2,
+      "visibleProbe": 0
+    },
+    {
+      "yaw": 3.141592653589793,
+      "count": 2,
+      "visibleProbe": 0
+    }
+  ],
+  "eyeCountOk": true
+}

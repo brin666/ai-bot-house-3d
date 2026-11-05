@@ -1,21 +1,29 @@
-import { BOT_RADIUS } from './bot-metrics';
+import {
+  BOT_BODY_CENTER_Y,
+  BOT_CARRY_HOLD_Y,
+  BOT_PICKUP_STANDOFF,
+  FLOOR_SURFACE_Y,
+  RUG_SURFACE_Y,
+} from './bot-look';
 
-/** Top of walkable floor slab (room-renderer floor mesh). */
-export const FLOOR_SURFACE_Y = 0.06;
-/** Rug tops sit slightly above the floor (details.ts). */
-export const RUG_SURFACE_Y = 0.094;
-/** Sphere centre Y so the bottom clears floor/rugs with a tiny gap. */
-export const BOT_BODY_CENTER_Y = FLOOR_SURFACE_Y + BOT_RADIUS + 0.035;
+export {
+  BOT_BODY_CENTER_Y,
+  BOT_CARRY_HOLD_Y,
+  BOT_PICKUP_STANDOFF,
+  FLOOR_SURFACE_Y,
+  RUG_SURFACE_Y,
+} from './bot-look';
 
 export const botMotion = {
   walk: {
-    speed: 1.05,
-    accel: 4.2,
+    speed: 1.9,
+    accel: 6,
     decel: 5.5,
-    stepBob: 0.028,
-    stepHz: 9.5,
-    lean: 0.11,
-    turnRate: 7.5,
+    stepBob: 0.065,
+    stepRadiansPerUnit: 14,
+    stepSquash: 0.035,
+    lean: 0.15,
+    turnRate: 8,
   },
   jump: {
     duration: 2.35,
@@ -30,43 +38,40 @@ export const botMotion = {
     landSquash: 0.88,
   },
   idle: {
-    bob: 0.012,
-    bobHz: 1.6,
+    bob: 0.008,
+    bobHz: 2.4,
+    breath: 0.02,
+    sleepBob: 0.009,
+    sleepBreath: 0.014,
+    sleepBreathHz: 0.75,
+    faceCameraDelay: 0.8,
+    faceCameraDuration: 0.72,
+    faceCameraOffset: 0.14,
   },
   carry: {
     bob: 0.04,
     bobHz: 8,
-    holdY: 1.02,
+    holdY: BOT_CARRY_HOLD_Y,
   },
   lift: {
     duration: 1.2,
     startY: 0.07,
-    holdY: 1.02,
+    holdY: BOT_CARRY_HOLD_Y,
   },
   place: {
     duration: 1.15,
-    holdY: 1.02,
+    holdY: BOT_CARRY_HOLD_Y,
     endY: 0.07,
-    /** Horizontal travel must finish before the parcel drops (fraction of timeline). */
     horizontalThrough: 0.62,
     dropStart: 0.52,
   },
   pickup: {
-    standOff: 0.5,
+    standOff: BOT_PICKUP_STANDOFF,
   },
   shadow: {
     groundY: FLOOR_SURFACE_Y + 0.001,
     baseScale: 0.92,
     airFade: 0.72,
-  },
-  eyes: {
-    blinkMin: 2.4,
-    blinkMax: 6.8,
-    blinkClose: 0.11,
-    doubleBlinkChance: 0.22,
-    lookStrength: 0.028,
-    cameraGlanceChance: 0.004,
-    pupilRadius: 0.022,
   },
   badge: {
     /** Keep icons readable without punching through walls. */

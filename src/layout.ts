@@ -10,6 +10,12 @@ export function renderLayout(app: HTMLElement) {
   </div>
   <div class="header-right">
     <span class="online"><i></i>本地模拟中</span>
+    <div class="live-summary" aria-live="polite">
+      <div class="live-heading"><span class="live-mark" aria-hidden="true">✳</span><span>小屋观察日记</span><span class="live-local">本地模拟</span></div>
+      <div class="live-readout"><div class="live-current"><small>此刻</small><strong id="live-now">BOT 正在探索</strong></div><div class="live-balance"><small>虚拟金币</small><strong id="livecoins">250</strong></div></div>
+      <small id="live-log" class="live-recent"></small>
+      <p id="live-save-alert" class="save-alert" role="alert" hidden></p>
+    </div>
     <button id="mode" class="mode" type="button">竖屏直播</button>
   </div>
 </header>
@@ -40,12 +46,9 @@ export function renderLayout(app: HTMLElement) {
       <div><span class="tiny-dot"></span><strong id="status">BOT 正在探索</strong><span class="divider">/</span><span>拖动旋转 · 滚轮缩放</span></div>
     </div>
     <div class="live-overlay">
-      <button id="live-focus" class="live-focus" type="button">近看 Bot</button>
       <div class="live-sink" hidden>
-        <strong id="livecoins"></strong>
         <small id="live-goal"></small>
         <i id="liveprogress"></i>
-        <p id="live-log"></p>
       </div>
     </div>
   </section>
@@ -55,7 +58,6 @@ export function renderLayout(app: HTMLElement) {
       <h1>一间小屋，<em>慢慢长大。</em></h1>
       <p class="intro">陪一只小小的 Bot，用虚拟金币把空房间布置起来。</p>
       <p id="save-alert" class="save-alert" role="alert" hidden></p>
-      <p id="live-save-alert" class="save-alert" role="alert" hidden></p>
       <div class="balance">
         <span class="balance-kicker">虚拟金币</span>
         <strong id="coins">250</strong>
@@ -79,6 +81,8 @@ export function renderLayout(app: HTMLElement) {
           <button type="button" data-activity="bed">休息</button>
           <button type="button" data-activity="table">阅读</button>
           <button type="button" data-activity="plant">看植物</button>
+          <button type="button" data-activity="chair">小憩</button>
+          <button type="button" data-activity="lamp">看灯</button>
         </div>
       </div>
     </div>
@@ -98,6 +102,7 @@ export function renderLayout(app: HTMLElement) {
             <button id="inspect-furniture" type="button">查看</button>
           </div>
         </div>
+        <button id="reset-save" class="reset-save" type="button">重置存档</button>
       </div>
       <p class="note">金币只保存在这台浏览器里，用来本地布置，不能兑换成真实收入。</p>
     </div>

@@ -1,0 +1,21 @@
+<!doctype html><meta charset="utf-8"><title>Bot eye mesh count</title><output id="result">waiting</output><script type="module">
+import * as THREE from 'three';
+import { createBot } from '/src/bot.ts';
+const bot = createBot();
+const camPos = new THREE.Vector3(8, 6, 10);
+const camQ = new THREE.Quaternion();
+const yaws = [0, Math.PI / 4, Math.PI / 2, (3 * Math.PI) / 4, Math.PI, (5 * Math.PI) / 4, (3 * Math.PI) / 2, (7 * Math.PI) / 4];
+const samples = yaws.map((y) => {
+  bot.root.rotation.y = y;
+  bot.update('Idle', '', 2.5, camQ, {
+    moveSpeed: 0,
+    moveDir: null,
+    jumpPhase: 0,
+    gaze: null,
+    cameraPos: camPos,
+  });
+  return { yaw: y, meshCount: bot.countEyeMeshesInScene(), visible: bot.probeDecals().eyes.filter((e) => e.visible).length };
+});
+const ok = samples.every((s) => s.meshCount === 2);
+document.querySelector('#result').textContent = JSON.stringify({ ok, samples });
+</script>

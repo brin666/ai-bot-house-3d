@@ -17,6 +17,7 @@ const PaperShader = {
     uContrast: { value: look.dither.contrast },
     uExposure: { value: look.dither.exposure },
     uShoulder: { value: look.dither.shoulder },
+    uHighlightFloor: { value: look.dither.highlightFloor },
     uInk: { value: new THREE.Color(look.outline.color) },
     uDepthThreshold: { value: look.outline.depthThreshold },
     uDepthStrength: { value: look.outline.depthStrength },
@@ -45,6 +46,7 @@ const PaperShader = {
     uniform float uContrast;
     uniform float uExposure;
     uniform float uShoulder;
+    uniform float uHighlightFloor;
     uniform vec3 uInk;
     uniform float uDepthThreshold;
     uniform float uDepthStrength;
@@ -108,6 +110,9 @@ const PaperShader = {
       float screen = mix(1.0 - uDotGain, 1.0 + uDotGain * 0.35, n);
       quantized = clamp(quantized * mix(1.0, screen, step(0.001, uDotGain)), 0.0, 1.0);
       vec3 dithered = mix(srgb, quantized, clamp(uStrength, 0.0, 1.0));
+      if (luma(srgb) > uHighlightFloor) {
+        dithered = max(dithered, vec3(0.94));
+      }
 
       vec2 texel = max(uThickness, 1.0) / uResolution;
       float depth = texture2D(tDepth, vUv).r;
@@ -160,6 +165,7 @@ export function syncPaperScale(pass: ShaderPass, pixelRatio: number) {
   pass.uniforms.uContrast.value = look.dither.contrast;
   pass.uniforms.uExposure.value = look.dither.exposure;
   pass.uniforms.uShoulder.value = look.dither.shoulder;
+  pass.uniforms.uHighlightFloor.value = look.dither.highlightFloor;
   pass.uniforms.uDepthThreshold.value = look.outline.depthThreshold;
   pass.uniforms.uDepthStrength.value = look.outline.depthStrength;
   pass.uniforms.uColorThreshold.value = look.outline.colorThreshold;

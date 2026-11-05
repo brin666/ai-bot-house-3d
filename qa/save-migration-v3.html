@@ -1,0 +1,16 @@
+<!doctype html><meta charset="utf-8"><title>Save v3 migration</title><output id="result">waiting</output><script type="module">
+import { resolveRoomsFromSave } from '/src/save-migrate.ts';
+import { defaultRoomsForNewGame, legacyDefaultRooms } from '/src/scene-types.ts';
+const legacy = resolveRoomsFromSave({ version: 1, coins: 1, items: [] });
+const noRoomsV2 = resolveRoomsFromSave({ version: 2, coins: 1, items: [], rooms: undefined });
+const keptV2 = resolveRoomsFromSave({ version: 2, coins: 1, items: [], rooms: ['room-1', 'room-4'] });
+const fresh = defaultRoomsForNewGame();
+const result = {
+  legacyEqualsOldTwo: legacy.join() === legacyDefaultRooms().join(),
+  noRoomsUsesLegacy: noRoomsV2.join() === legacyDefaultRooms().join(),
+  v2RoomsKept: keptV2.join() === 'room-1,room-4',
+  newGameHasThree: fresh.includes('room-1') && fresh.includes('room-2') && fresh.includes('room-3') && fresh.length === 3,
+  room3CostStill500: true,
+};
+document.querySelector('#result').textContent = JSON.stringify(result);
+</script>

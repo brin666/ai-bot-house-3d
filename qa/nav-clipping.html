@@ -1,0 +1,149 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Navigation clipping audit</title>
+<output id="result">waiting</output>
+<script type="module">
+import * as THREE from 'three';
+import data from '/src/scene.json';
+import { rooms } from '/src/scene-types.ts';
+import { decorLayout } from '/src/decor-layout.ts';
+import { furniture, disposeFurniture } from '/src/furniture.ts';
+import { catalog } from '/src/store.ts';
+import { setActiveRooms, setDecorBlocks, blocked, path, segmentClear, clearanceAt, interactionStandPoints } from '/src/navigation.ts';
+import { BOT_RADIUS } from '/src/bot-metrics.ts';
+
+const output = document.querySelector('#result');
+try {
+  const roomIds = rooms.map((room) => room.id);
+  const layout = decorLayout(roomIds);
+  setActiveRooms(roomIds);
+  setDecorBlocks(layout.blocks);
+  const items = data.furniture;
+  let seed = 0x41c64e6d;
+  const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 0x100000000; };
+  const freeCells = [];
+  for (const room of rooms) {
+    if (room.walkable === false) continue;
+    const [cx, cz] = room.position;
+    for (let gx = Math.ceil((cx - room.size[0] / 2 + 0.75) * 2); gx <= Math.floor((cx + room.size[0] / 2 - 0.75) * 2); gx++) {
+      for (let gz = Math.ceil((cz - room.size[1] / 2 + 0.75) * 2); gz <= Math.floor((cz + room.size[1] / 2 - 0.75) * 2); gz++) {
+        const point = [gx / 2, gz / 2];
+        if (!blocked(point[0], point[1], items)) freeCells.push(point);
+      }
+    }
+  }
+  const stands = items.flatMap((item) => interactionStandPoints(item, items));
+  const targetCells = [...new Map([...freeCells, ...stands]
+    .filter(([x, z]) => !blocked(x, z, items))
+    .map((point) => [`${point[0]},${point[1]}`, point])).values()];
+  const walks = 300;
+  let pathsFound = 0;
+  let totalWaypoints = 0;
+  let zigzagMax = 0;
+  let minClearance = Infinity;
+  let worst = null;
+  for (let walk = 0; walk < walks; walk++) {
+    const start = freeCells[Math.floor(random() * freeCells.length)];
+    let target;
+    target = targetCells[Math.floor(random() * targetCells.length)];
+    let attempts = 0;
+    while ((!target || Math.hypot(target[0] - start[0], target[1] - start[1]) < 1) && attempts++ < 20) {
+      target = targetCells[Math.floor(random() * targetCells.length)];
+    }
+    const route = path(start[0], start[1], target[0], target[1], items);
+    const reached = route.length > 0 && Math.hypot(route.at(-1)[0] - target[0], route.at(-1)[1] - target[1]) < 1e-5;
+    if (reached) pathsFound++;
+    totalWaypoints += route.length;
+    const points = [start, ...route];
+    let walkMin = Infinity;
+    let routeClear = true;
+    let changes = 0;
+    let previousAngle = null;
+    for (let i = 0; i < points.length; i++) {
+      const clearance = clearanceAt(points[i][0], points[i][1], items);
+      walkMin = Math.min(walkMin, clearance);
+      if (i === 0) continue;
+      const a = points[i - 1], b = points[i];
+      const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (!segmentClear(a[0], a[1], b[0], b[1], items)) routeClear = false;
+      const steps = Math.max(1, Math.ceil(length / 0.02));
+      for (let step = 0; step <= steps; step++) {
+        const t = step / steps;
+        const x = a[0] + (b[0] - a[0]) * t;
+        const z = a[1] + (b[1] - a[1]) * t;
+        walkMin = Math.min(walkMin, clearanceAt(x, z, items));
+      }
+      if (length > 1e-6) {
+        const angle = Math.atan2(b[1] - a[1], b[0] - a[0]);
+        if (previousAngle !== null) {
+          let delta = Math.abs(angle - previousAngle) % (Math.PI * 2);
+          if (delta > Math.PI) delta = Math.PI * 2 - delta;
+          if (delta > Math.PI / 6) changes++;
+        }
+        previousAngle = angle;
+      }
+    }
+    zigzagMax = Math.max(zigzagMax, changes);
+    if (walkMin < minClearance) {
+      minClearance = walkMin;
+      worst = { walk, start, target, minClearance: walkMin, routeClear, waypoints: route.length };
+    }
+  }
+
+  const offenders = [];
+  const extents = (shape) => {
+    if (shape.kind === 'box') return { x: shape.w / 2, z: shape.d / 2, height: shape.h };
+    if (shape.kind === 'cylinder') return { x: Math.max(shape.rt, shape.rb), z: Math.max(shape.rt, shape.rb), height: shape.h };
+    if (shape.kind === 'sphere') return { x: shape.r, z: shape.r, height: shape.r * 2 };
+    return { x: shape.r + shape.tube, z: shape.r + shape.tube, height: shape.tube * 2 };
+  };
+  let decorCoverageOk = true;
+  for (const piece of layout.pieces) {
+    if (piece.wallArt) continue;
+    const isTall = piece.shapes.some((shape) => extents(shape).height > 0.03);
+    if (!isTall) continue;
+    if (!piece.block) {
+      decorCoverageOk = false;
+      offenders.push({ kind: 'decor-missing-block', id: piece.id });
+      continue;
+    }
+    for (const shape of piece.shapes) {
+      const e = extents(shape), b = piece.block;
+      if (shape.x - e.x < b.x - b.w / 2 - 1e-6 || shape.x + e.x > b.x + b.w / 2 + 1e-6 || shape.z - e.z < b.z - b.d / 2 - 1e-6 || shape.z + e.z > b.z + b.d / 2 + 1e-6) {
+        decorCoverageOk = false;
+        offenders.push({ kind: 'decor-outside-block', id: piece.id, shape: shape.kind });
+      }
+    }
+  }
+
+  let itemCoverageOk = true;
+  for (const item of items) {
+    const group = furniture(item);
+    group.position.set(0, 0, 0);
+    group.rotation.set(0, 0, 0);
+    group.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(group);
+    const [w, d] = catalog[item.type].size;
+    const within = bounds.min.x >= -w / 2 - 1e-6 && bounds.max.x <= w / 2 + 1e-6 && bounds.min.z >= -d / 2 - 1e-6 && bounds.max.z <= d / 2 + 1e-6;
+    if (!within) {
+      itemCoverageOk = false;
+      offenders.push({ kind: 'item-outside-catalog-size', id: item.id, bounds: { minX: bounds.min.x, maxX: bounds.max.x, minZ: bounds.min.z, maxZ: bounds.max.z }, size: [w, d] });
+    }
+    disposeFurniture(group);
+  }
+  const unreachable = walks - pathsFound;
+  const result = {
+    ok: minClearance >= 0 && pathsFound === walks,
+    walks, pathsFound, unreachable, minClearance, worst,
+    avgWaypoints: totalWaypoints / walks,
+    zigzagMax,
+    decorCoverageOk,
+    itemCoverageOk,
+    offenders,
+    botRadius: BOT_RADIUS,
+  };
+  output.textContent = JSON.stringify(result);
+} catch (error) {
+  output.textContent = JSON.stringify({ ok: false, error: String(error) });
+}
+</script>

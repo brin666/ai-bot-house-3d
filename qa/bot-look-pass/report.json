@@ -1,0 +1,14 @@
+{
+  "verification": "Headless Chrome + SwiftShader WebGL — not a phone or livestream device.",
+  "zoom_review": "fix_*_zoom.png reviewed: eyes are on the front face (plane decals, botFaceNormal); back view shows glints only; no ear-like capsules above silhouette after plane-eye fix.",
+  "runtime_confirmed": {
+    "bot_clearance": "pass",
+    "navigation_safety": "pass",
+    "furniture_geometry": "pass",
+    "npm_build": "pass"
+  },
+  "code_reasoning": [
+    "Outline/sheen read depends on dither + ortho zoom; tuned outlineScale 1.102 and dual-tone Lambert sheen mesh",
+    "Glints are view-aligned each frame with tangent-plane offsets, not fixed world poles"
+  ]
+}

@@ -1,0 +1,57 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>V3 layout migration audit</title>
+<output id="result">waiting</output>
+<script type="module">
+import data from '/src/scene.json';
+import { rooms } from '/src/scene-types.ts';
+import { decorLayout } from '/src/decor-layout.ts';
+import { setActiveRooms, setDecorBlocks, validPlacement, allRoomsReachableFrom } from '/src/navigation.ts';
+import { migrateLayout } from '/src/save-migrate.ts';
+
+const output = document.querySelector('#result');
+try {
+  const roomIds = rooms.map((room) => room.id);
+  const defaults = structuredClone(data.furniture);
+  const extraPlants = [
+    { id: 'migration-extra-living', type: 'plant', roomId: 'room-2', x: 8, z: 1.3, rotation: 0, purchased: true },
+    { id: 'migration-extra-study', type: 'plant', roomId: 'room-6', x: -1.55, z: 9.45, rotation: 0, purchased: true },
+  ];
+  const pending = { id: 'migration-pending-kitchen', type: 'plant', roomId: 'room-3', x: 18.45, z: -1.5, rotation: 0, purchased: true, price: 50 };
+  const save = {
+    version: 3,
+    coins: 250,
+    items: [...defaults, ...extraPlants],
+    rooms: roomIds,
+    logs: ['小屋准备好了，今天也要好好生活。'],
+    pending,
+  };
+  setActiveRooms(roomIds);
+  setDecorBlocks([]);
+  const oldRulesValid = extraPlants.every((item) => validPlacement(item, save.items.filter((other) => other.id !== item.id))) && validPlacement(pending, save.items);
+  setDecorBlocks(decorLayout(roomIds).blocks);
+  const before = structuredClone(save.items);
+  const initiallyValid = new Set(before.filter((item) => validPlacement(item, before.filter((other) => other.id !== item.id))).map((item) => item.id));
+  const migrated = migrateLayout(save.items, save.pending, save.rooms);
+  const allAfter = migrated.pending && !migrated.items.some((item) => item.id === migrated.pending.id) ? [...migrated.items, migrated.pending] : migrated.items;
+  const allValid = allAfter.every((item) => validPlacement(item, allAfter.filter((other) => other.id !== item.id))) && allRoomsReachableFrom([0, 2], allAfter, roomIds);
+  const unchangedValid = before.filter((item) => initiallyValid.has(item.id)).every((item) => {
+    const after = migrated.items.find((candidate) => candidate.id === item.id);
+    return Boolean(after && after.x === item.x && after.z === item.z && after.rotation === item.rotation);
+  });
+  const idsPreserved = JSON.stringify(before.map((item) => item.id)) === JSON.stringify(migrated.items.map((item) => item.id)) && migrated.pending?.id === pending.id;
+  const result = {
+    ok: oldRulesValid && migrated.moved.includes(extraPlants[0].id) && migrated.moved.includes(extraPlants[1].id) && migrated.moved.includes(pending.id) && unchangedValid && allValid && idsPreserved,
+    moved: migrated.moved,
+    unchangedValid,
+    allValid,
+    idsPreserved,
+    version: save.version,
+    oldRulesValid,
+    saveShape: Object.keys(save),
+  };
+  output.textContent = JSON.stringify(result);
+} catch (error) {
+  output.textContent = JSON.stringify({ ok: false, error: String(error) });
+}
+</script>

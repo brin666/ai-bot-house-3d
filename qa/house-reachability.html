@@ -1,0 +1,30 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Full house reachability</title>
+<output id="result">waiting</output>
+<script type="module">
+import data from '/src/scene.json';
+import { setActiveRooms, setDecorBlocks, allRoomsReachableFrom, roomReachability, interactionStandPoints, path } from '/src/navigation.ts';
+import { decorLayout } from '/src/decor-layout.ts';
+import { rooms } from '/src/scene-types.ts';
+
+const allIds = rooms.map((room) => room.id);
+setActiveRooms(allIds);
+setDecorBlocks(decorLayout(allIds).blocks);
+const start = [0, 2];
+const items = data.furniture;
+const perRoom = { ...roomReachability(start, items, allIds), 'pool-main': false };
+const standPoints = Object.fromEntries(items.map((item) => {
+  const candidates = interactionStandPoints(item, items);
+  return [item.id, candidates.some(([x, z]) => path(start[0], start[1], x, z, items).length > 0)];
+}));
+const allUnlockedReachable = allRoomsReachableFrom(start, items, allIds);
+const result = {
+  ok: allUnlockedReachable && Object.entries(perRoom).every(([id, reachable]) => id === 'pool-main' || reachable) && Object.values(standPoints).every(Boolean),
+  allUnlockedReachable,
+  roomReachability: perRoom,
+  defaultFurnitureStandReachability: standPoints,
+  decorBlocks: decorLayout(allIds).blocks.length,
+};
+document.querySelector('#result').textContent = JSON.stringify(result);
+</script>
