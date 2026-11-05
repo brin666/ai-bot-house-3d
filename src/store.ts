@@ -6,7 +6,8 @@ export type Item = {id:string;type:Kind;roomId:string;x:number;z:number;rotation
 export type Event = {type:'like'|'follow'|'gift'|'purchase'|'delivery'|'place'; detail?:string};
 export const catalog:Record<Kind,{name:string;price:number;size:[number,number];interaction:[number,number];icon:string;model?:{url:string;scale:number;rotation:number}}> = {
  bed:{name:'软软小床',price:180,size:[1.7,2.3],interaction:[0,1.5],icon:'▰'},table:{name:'橡木书桌',price:120,size:[1.8,1],interaction:[0,1],icon:'▤'},chair:{name:'木质小椅',price:80,size:[0.8,0.8],interaction:[0,0.8],icon:'♧'},lamp:{name:'暖光台灯',price:60,size:[0.55,0.55],interaction:[0,0.8],icon:'♟',model:{url:'models/paper-lamp.glb',scale:1,rotation:0}},plant:{name:'一盆绿意',price:50,size:[0.7,0.7],interaction:[0,0.9],icon:'✿'}};
-const SAVE_KEY='bot-house-v1';
+export const SAVE_KEY='bot-house-v1';
+export function resetSave(){localStorage.removeItem(SAVE_KEY)}
 const knownRooms=new Set(allSceneRooms.map(room=>room.id));
 function validItem(value:unknown):value is Item {if(!value||typeof value!=='object')return false;const i=value as Record<string,unknown>;return typeof i.id==='string'&&i.id.length>0&&typeof i.type==='string'&&Object.hasOwn(catalog,i.type)&&typeof i.roomId==='string'&&knownRooms.has(i.roomId)&&typeof i.x==='number'&&Number.isFinite(i.x)&&typeof i.z==='number'&&Number.isFinite(i.z)&&typeof i.rotation==='number'&&Number.isFinite(i.rotation)&&typeof i.purchased==='boolean'&&(i.price===undefined||(typeof i.price==='number'&&Number.isFinite(i.price)&&i.price>=0))}
 export class Store extends EventTarget {

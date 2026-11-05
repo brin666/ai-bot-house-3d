@@ -212,12 +212,22 @@ h1 em { font-style: italic; color: var(--coral); }
   font-weight: 700;
   color: var(--muted);
 }
-.buy-room, .gift-furniture, .actions button, .event-grid button, .owned-furniture button, .relocate-furniture {
+.buy-room, .gift-furniture, .actions button, .event-grid button, .owned-furniture button, .relocate-furniture, .reset-save {
   border-radius: 10px;
 }
 .buy-room {
   width: 100%;
   margin-top: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 750;
+}
+.reset-save {
+  width: 100%;
+  margin-top: 12px;
   padding: 9px 12px;
   border: 1px solid var(--line);
   background: transparent;

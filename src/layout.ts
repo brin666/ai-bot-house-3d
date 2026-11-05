@@ -102,6 +102,7 @@ export function renderLayout(app: HTMLElement) {
             <button id="inspect-furniture" type="button">查看</button>
           </div>
         </div>
+        <button id="reset-save" class="reset-save" type="button">重置存档</button>
       </div>
       <p class="note">金币只保存在这台浏览器里，用来本地布置，不能兑换成真实收入。</p>
     </div>
