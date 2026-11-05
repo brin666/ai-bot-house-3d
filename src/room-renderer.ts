@@ -2,8 +2,7 @@ import * as THREE from 'three';
 import { flatMaterial, look } from './look';
 import { mergeRoomFloorBoards } from './decor-builder';
 import { rooms as allRooms, type SceneRoom } from './scene-types';
-import { roomSurfaceMaterial } from './room-surfaces';
-import { SURFACE_MASK_LAYER } from './paper';
+import { markRoomSurfaceMaterial, roomSurfaceMaterial } from './room-surfaces';
 
 const WALL_THICKNESS = 0.12;
 const BACK_WALL_HEIGHT = 2.35;
@@ -21,21 +20,17 @@ function cube(
   color: string | THREE.Material,
   parent: THREE.Object3D,
   cast = true,
-  surfaceMask = false,
+  surfaceMarker = false,
 ) {
-  const material = typeof color === 'string' ? flatMaterial(color) : color;
+  const sourceMaterial = typeof color === 'string' ? flatMaterial(color) : color;
+  const material = surfaceMarker && !sourceMaterial.userData.roomSurfaceAlphaMarker
+    ? markRoomSurfaceMaterial(sourceMaterial.clone())
+    : sourceMaterial;
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
   mesh.position.set(x, y, z);
   if (cast) mesh.castShadow = true;
   mesh.receiveShadow = true;
-  if (surfaceMask) markRoomSurface(mesh);
   parent.add(mesh);
-  return mesh;
-}
-
-function markRoomSurface(mesh: THREE.Mesh) {
-  mesh.userData.surfaceMask = true;
-  mesh.layers.enable(SURFACE_MASK_LAYER);
   return mesh;
 }
 
@@ -105,7 +100,6 @@ export function drawRooms(roomGroup: THREE.Group, unlockedIds: string[]) {
       ghost.opacity = 0.22;
       const slab = new THREE.Mesh(new THREE.BoxGeometry(w, 0.08, d), ghost);
       slab.position.set(rx, 0.02, rz);
-      markRoomSurface(slab);
       roomGroup.add(slab);
       const dash = new THREE.LineSegments(
         new THREE.EdgesGeometry(new THREE.BoxGeometry(w, 0.1, d)),

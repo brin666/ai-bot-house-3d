@@ -40,10 +40,37 @@ const SURFACE_LINE_OPACITY = 0.48;
 const SURFACE_CANVAS_SCALE = 2;
 const SURFACE_LINE_CSS_PIXELS = 1.7;
 const WALL_WORLD_HEIGHT = 2.35;
+const PAPER_TILE_SIZE = 32;
+const BAYER_8 = [
+  0, 48, 12, 60, 3, 51, 15, 63,
+  32, 16, 44, 28, 35, 19, 47, 31,
+  8, 56, 4, 52, 11, 59, 7, 55,
+  40, 24, 36, 20, 43, 27, 39, 23,
+  2, 50, 14, 62, 1, 49, 13, 61,
+  34, 18, 46, 30, 33, 17, 45, 29,
+  10, 58, 6, 54, 9, 57, 5, 53,
+  42, 26, 38, 22, 41, 25, 37, 21,
+];
 const textures = new Map<string, THREE.CanvasTexture>();
 const materials = new Map<string, THREE.MeshLambertMaterial>();
+let sharedPaperTile: HTMLCanvasElement | null = null;
 let surfaceAnisotropy = 1;
 let surfaceCssPixelsPerWorldUnit = 80;
+
+/** Mark room finishes in the existing RGBA color target so the paper pass can skip screen dither. */
+export function markRoomSurfaceMaterial<T extends THREE.Material>(material: T): T {
+  if (material.userData.roomSurfaceAlphaMarker) return material;
+  material.onBeforeCompile = (shader) => {
+    const outputChunk = '#include <opaque_fragment>';
+    shader.fragmentShader = shader.fragmentShader.replace(
+      outputChunk,
+      outputChunk + '\n  gl_FragColor.a = 0.0;',
+    );
+  };
+  material.customProgramCacheKey = () => 'room-surface-alpha-marker-v1';
+  material.userData.roomSurfaceAlphaMarker = true;
+  return material;
+}
 
 function logicalLineWidth(texelsPerWorldUnit: number) {
   // Texture coverage and CSS projection set the stroke width; DPR cancels because
@@ -72,6 +99,124 @@ function randomFor(seed: string) {
     value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
     return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+function paperFiberTile() {
+  if (sharedPaperTile) return sharedPaperTile;
+  const tile = document.createElement('canvas');
+  tile.width = PAPER_TILE_SIZE;
+  tile.height = PAPER_TILE_SIZE;
+  const ctx = tile.getContext('2d');
+  if (!ctx) return null;
+  const random = randomFor('room-paper-fibres-v1');
+  const wrapped = (draw: (x: number, y: number) => void, x: number, y: number) => {
+    for (const ox of [-PAPER_TILE_SIZE, 0, PAPER_TILE_SIZE]) {
+      for (const oy of [-PAPER_TILE_SIZE, 0, PAPER_TILE_SIZE]) draw(x + ox, y + oy);
+    }
+  };
+
+  for (let i = 0; i < 78; i++) {
+    const x = random() * PAPER_TILE_SIZE;
+    const y = random() * PAPER_TILE_SIZE;
+    const length = 2 + random() * 7;
+    const angle = (random() - 0.5) * Math.PI;
+    ctx.strokeStyle = rgbaColor(random() > 0.23 ? WALL_INK : '#fff8e9', 0.035 + random() * 0.045);
+    ctx.lineWidth = 0.35 + random() * 0.45;
+    wrapped((px, py) => {
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(px + Math.cos(angle) * length, py + Math.sin(angle) * length);
+      ctx.stroke();
+    }, x, y);
+  }
+
+  for (let i = 0; i < 92; i++) {
+    const x = random() * PAPER_TILE_SIZE;
+    const y = random() * PAPER_TILE_SIZE;
+    const radius = 0.25 + random() * 0.55;
+    ctx.fillStyle = rgbaColor(random() > 0.18 ? WALL_INK : '#fff8e9', 0.025 + random() * 0.045);
+    wrapped((px, py) => {
+      ctx.beginPath();
+      ctx.arc(px, py, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }, x, y);
+  }
+
+  // Low-frequency pigment flecks keep the printed tone from looking perfectly flat.
+  for (let i = 0; i < 24; i++) {
+    const x = random() * PAPER_TILE_SIZE;
+    const y = random() * PAPER_TILE_SIZE;
+    const radius = 0.8 + random() * 1.4;
+    ctx.fillStyle = rgbaColor(WALL_INK, 0.018 + random() * 0.025);
+    wrapped((px, py) => {
+      ctx.beginPath();
+      ctx.arc(px, py, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }, x, y);
+  }
+
+  sharedPaperTile = tile;
+  return tile;
+}
+
+function drawPaperLayer(ctx: CanvasRenderingContext2D, logicalSize: [number, number]) {
+  const tile = paperFiberTile();
+  const pattern = tile && ctx.createPattern(tile, 'repeat');
+  if (!pattern) return;
+  ctx.save();
+  ctx.globalAlpha = 0.62;
+  ctx.fillStyle = pattern;
+  ctx.fillRect(0, 0, logicalSize[0], logicalSize[1]);
+  ctx.restore();
+}
+
+function ditherCellSize(kind: SurfaceKind, canvasWidth: number, roomSize: [number, number]) {
+  const texturePixelsPerWorld = (kind === 'wallpaper' ? canvasWidth * 3 : canvasWidth) / roomSize[0];
+  const ideal = texturePixelsPerWorld * look.dither.blockSize / surfaceCssPixelsPerWorldUnit;
+  return [2, 4, 8].reduce((closest, candidate) =>
+    Math.abs(candidate - ideal) < Math.abs(closest - ideal) ? candidate : closest, 4);
+}
+
+/** Bake a texture-anchored, 8x8 Bayer pattern at approximately the furniture block size. */
+function bakeSurfaceDither(canvas: HTMLCanvasElement, kind: SurfaceKind, roomId: string, roomSize: [number, number]) {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const pixels = image.data;
+  const cellSize = ditherCellSize(kind, canvas.width, roomSize);
+  const steps = Math.max(look.dither.levels - 1, 1);
+  const phase = randomFor(roomId + ':' + kind + ':bayer');
+  const phaseX = Math.floor(phase() * 8);
+  const phaseY = Math.floor(phase() * 8);
+  const dotGain = look.dither.dotGain;
+  const strength = look.dither.strength;
+
+  for (let top = 0, row = 0; top < canvas.height; top += cellSize, row++) {
+    const bottom = Math.min(canvas.height, top + cellSize);
+    for (let left = 0, column = 0; left < canvas.width; left += cellSize, column++) {
+      const right = Math.min(canvas.width, left + cellSize);
+      const sample = ((Math.floor((top + bottom - 1) / 2) * canvas.width) + Math.floor((left + right - 1) / 2)) * 4;
+      const threshold = (BAYER_8[((row + phaseY) & 7) * 8 + ((column + phaseX) & 7)] + 0.5) / 64;
+      const screen = 1 - dotGain + threshold * (dotGain * 1.35);
+      const quantize = (value: number) => {
+        const original = value / 255;
+        const quantized = Math.max(0, Math.min(1, Math.floor(original * steps + threshold) / steps * screen));
+        return Math.round((original + (quantized - original) * strength) * 255);
+      };
+      const red = quantize(pixels[sample]);
+      const green = quantize(pixels[sample + 1]);
+      const blue = quantize(pixels[sample + 2]);
+      for (let y = top; y < bottom; y++) {
+        for (let x = left; x < right; x++) {
+          const index = (y * canvas.width + x) * 4;
+          pixels[index] = red;
+          pixels[index + 1] = green;
+          pixels[index + 2] = blue;
+        }
+      }
+    }
+  }
+  ctx.putImageData(image, 0, 0);
 }
 
 function wobblyLine(
@@ -149,38 +294,62 @@ function drawWallPattern(
     wobblyLine(ctx, 0, railY + 3, width, railY + 3, random, 0.45);
     for (let x = 32; x < width; x += 48) wobblyLine(ctx, x, railY + 5, x, height, random, 0.5);
   } else if (style.pattern === 'flowers') {
-    ctx.globalAlpha = 0.2;
-    for (let y = 40; y < height; y += 88) for (let x = 38; x < width; x += 88) {
-      for (let petal = 0; petal < 4; petal++) {
-        const angle = petal * Math.PI / 2;
+    const petalInk = mixColor(wallStyle.base, WALL_INK, 0.42);
+    const petalEdge = mixColor(wallStyle.base, WALL_INK, 0.3);
+    const flowerCenter = mixColor(wallStyle.accent, '#c56a54', 0.42);
+    ctx.globalAlpha = 0.74;
+    ctx.lineWidth = Math.max(0.75, logicalLineWidth((horizontalTexelsPerWorld + verticalTexelsPerWorld) / 2) * 0.22);
+    for (let y = 32; y + 27 < height; y += 56) for (let x = 32; x < width; x += 64) {
+      const cx = x + (random() - 0.5) * 2.4;
+      const cy = y + (random() - 0.5) * 2.4;
+      ctx.strokeStyle = petalEdge;
+      ctx.fillStyle = petalInk;
+      for (let petal = 0; petal < 5; petal++) {
+        const angle = petal * Math.PI * 2 / 5 + (random() - 0.5) * 0.1;
+        ctx.save();
+        ctx.translate(cx + Math.cos(angle) * 5, cy + Math.sin(angle) * 5);
+        ctx.rotate(angle + Math.PI / 2);
         ctx.beginPath();
-        ctx.ellipse(x + Math.cos(angle) * 3, y + Math.sin(angle) * 3, 1.6, 2.2, angle, 0, Math.PI * 2);
+        ctx.moveTo(-2.3, 1.2);
+        ctx.quadraticCurveTo(-5.5, -3.8, -1.4, -11 + random() * 2);
+        ctx.quadraticCurveTo(3.5, -10 + random() * 2, 2.4, 1.2);
+        ctx.quadraticCurveTo(0, 3.2, -2.3, 1.2);
+        ctx.closePath();
         ctx.fill();
+        ctx.stroke();
+        ctx.restore();
       }
+      ctx.fillStyle = flowerCenter;
       ctx.beginPath();
-      ctx.arc(x, y, 1, 0, Math.PI * 2);
-      ctx.fillStyle = faintInk;
+      ctx.arc(cx, cy, 2.8, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = tint;
+      ctx.strokeStyle = petalEdge;
+      ctx.beginPath();
+      ctx.moveTo(cx + 1, cy + 7);
+      ctx.quadraticCurveTo(cx + 5, cy + 14, cx + 2, cy + 23);
+      ctx.stroke();
+      ctx.fillStyle = petalInk;
+      ctx.beginPath();
+      ctx.ellipse(cx + 5, cy + 15, 4.3, 2.2, -0.45, 0, Math.PI * 2);
+      ctx.fill();
     }
   } else if (style.pattern === 'polka') {
-    ctx.globalAlpha = 0.19;
+    ctx.globalAlpha = 0.28;
+    ctx.fillStyle = faintInk;
     for (let y = 28; y < height; y += 56) for (let x = 28 + (y % 112 ? 0 : 28); x < width; x += 56) {
       ctx.beginPath();
-      ctx.arc(x, y, 2, 0, Math.PI * 2);
+      ctx.arc(x + (random() - 0.5) * 2, y + (random() - 0.5) * 2, 3, 0, Math.PI * 2);
       ctx.fill();
     }
   } else if (style.pattern === 'diamonds') {
     ctx.strokeStyle = WALL_INK;
-    ctx.globalAlpha = 0.18;
+    ctx.globalAlpha = 0.25;
     for (let y = 0; y < height + 64; y += 64) for (let x = 0; x < width + 64; x += 64) {
-      ctx.beginPath();
-      ctx.moveTo(x, y - 5);
-      ctx.lineTo(x + 5, y);
-      ctx.lineTo(x, y + 5);
-      ctx.lineTo(x - 5, y);
-      ctx.closePath();
-      ctx.stroke();
+      const skew = (random() - 0.5) * 2;
+      wobblyLine(ctx, x, y - 10, x + 10 + skew, y, random, 1.1);
+      wobblyLine(ctx, x + 10 + skew, y, x, y + 10, random, 1.1);
+      wobblyLine(ctx, x, y + 10, x - 10 + skew, y, random, 1.1);
+      wobblyLine(ctx, x - 10 + skew, y, x, y - 10, random, 1.1);
     }
   } else if (style.pattern === 'stars') {
     ctx.strokeStyle = WALL_INK;
@@ -276,58 +445,110 @@ function drawFloorPattern(
   const verticalTexelsPerWorld = height * SURFACE_CANVAS_SCALE / roomSize[1];
   const floorLineWidth = logicalLineWidth((horizontalTexelsPerWorld + verticalTexelsPerWorld) / 2);
   if (style.pattern === 'planks') {
+    const rows: Array<{ y: number; height: number; joints: number[] }> = [];
     let y = 0;
     let row = 0;
     while (y < height) {
-      const rowHeight = 70 + random() * 12;
+      const rowHeight = 48 + random() * 14;
       const bandHeight = Math.min(rowHeight, height - y);
-      const occasionalDarkPlank = row % 7 === 5;
-      const plankTone = mixColor(style.base, '#000000', occasionalDarkPlank ? 0.06 : row % 2 ? 0.035 : 0);
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = plankTone;
-      ctx.fillRect(0, y, width, bandHeight);
+      const joints: number[] = [];
+      let x = row % 2 ? -74 - random() * 36 : -18 - random() * 34;
+      while (x < width) {
+        const plankLength = 118 + random() * 74;
+        const plankTone = mixColor(style.base, style.accent, 0.16 + random() * 0.58);
+        const finishedTone = random() > 0.56
+          ? mixColor(plankTone, '#fff5dc', 0.015 + random() * 0.03)
+          : mixColor(plankTone, '#38271d', 0.008 + random() * 0.026);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = finishedTone;
+        ctx.fillRect(x, y, plankLength, bandHeight);
 
-      ctx.strokeStyle = WALL_INK;
-      ctx.lineWidth = floorLineWidth;
-      ctx.globalAlpha = SURFACE_LINE_OPACITY;
-      if (row > 0) wobblyLine(ctx, 0, y, width, y, random, 0.8);
-      // Full-height end joints alternate by row to read as hand-laid planks.
-      let joint = (row % 2 ? 112 : 42) + random() * 28;
-      while (joint < width) {
-        wobblyLine(ctx, joint, y + 3, joint, y + bandHeight - 3, random, 0.8);
-        joint += 150 + random() * 48;
+        // A few long, fine grain marks follow each board instead of a flat color band.
+        ctx.lineWidth = Math.max(0.45, floorLineWidth * 0.22);
+        for (let grain = 0, count = 2 + Math.floor(random() * 3); grain < count; grain++) {
+          const grainY = y + 7 + random() * Math.max(2, bandHeight - 14);
+          const start = x + 8 + random() * 12;
+          const end = Math.min(x + plankLength - 5, start + plankLength * (0.52 + random() * 0.35));
+          ctx.strokeStyle = rgbaColor(mixColor(finishedTone, WALL_INK, 0.24), 0.1 + random() * 0.07);
+          ctx.beginPath();
+          ctx.moveTo(start, grainY);
+          ctx.quadraticCurveTo(start + (end - start) * 0.38, grainY + (random() - 0.5) * 2.4, start + (end - start) * 0.68, grainY + (random() - 0.5) * 2.2);
+          ctx.quadraticCurveTo(end - 4, grainY + (random() - 0.5) * 1.8, end, grainY + (random() - 0.5) * 1.4);
+          ctx.stroke();
+        }
+
+        if (random() < 0.16 && plankLength > 130) {
+          const knotX = x + plankLength * (0.35 + random() * 0.3);
+          const knotY = y + bandHeight * (0.35 + random() * 0.3);
+          ctx.strokeStyle = rgbaColor(WALL_INK, 0.25);
+          ctx.lineWidth = Math.max(0.5, floorLineWidth * 0.25);
+          ctx.beginPath();
+          ctx.ellipse(knotX, knotY, 7 + random() * 2, 2.3 + random(), (random() - 0.5) * 0.12, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.ellipse(knotX, knotY, 3.8, 1.2, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillStyle = rgbaColor(WALL_INK, 0.16);
+          ctx.beginPath();
+          ctx.ellipse(knotX, knotY, 1.3, 0.75, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        if (x > 0) joints.push(x);
+        x += plankLength;
       }
+      rows.push({ y, height: bandHeight, joints });
       y += rowHeight;
       row++;
     }
-  } else if (style.pattern === 'checker') {
-    const cell = 112;
-    for (let y = 0, row = 0; y < height; y += cell, row++) {
-      for (let x = 0, column = 0; x < width; x += cell, column++) {
-        if ((row + column) % 2 === 0) {
-          ctx.fillStyle = style.accent;
-          ctx.globalAlpha = 0.42;
-          ctx.fillRect(x, y, cell, cell);
-        }
-      }
-    }
+
+    // Deep blue, gently wandering joints keep the boards hand-laid and readable.
     ctx.strokeStyle = WALL_INK;
     ctx.lineWidth = floorLineWidth;
     ctx.globalAlpha = SURFACE_LINE_OPACITY;
+    for (let index = 0; index < rows.length; index++) {
+      const plankRow = rows[index];
+      if (index > 0) wobblyLine(ctx, 0, plankRow.y, width, plankRow.y, random, 1.25);
+      for (const joint of plankRow.joints) {
+        wobblyLine(ctx, joint, plankRow.y + 2, joint, plankRow.y + plankRow.height - 2, random, 1.45);
+      }
+    }
+  } else if (style.pattern === 'checker') {
+    const cell = 112;
+    const checkerTint = mixColor(style.base, style.accent, 0.68);
+    for (let y = 0, row = 0; y < height; y += cell, row++) {
+      for (let x = 0, column = 0; x < width; x += cell, column++) {
+        if ((row + column) % 2 === 0) {
+          ctx.fillStyle = checkerTint;
+        } else {
+          ctx.fillStyle = style.base;
+        }
+        ctx.globalAlpha = 1;
+        ctx.fillRect(x, y, cell, cell);
+      }
+    }
+    drawTileWear(ctx, width, height, cell, style, random);
+    ctx.strokeStyle = WALL_INK;
+    ctx.lineWidth = floorLineWidth * 0.78;
+    ctx.globalAlpha = 0.34;
     for (let x = 0; x <= width; x += cell) wobblyLine(ctx, x, 0, x, height, random, 0.65);
     for (let y = 0; y <= height; y += cell) wobblyLine(ctx, 0, y, width, y, random, 0.65);
   } else if (style.pattern === 'tiles' || style.pattern === 'grid' || style.pattern === 'entry') {
     const cell = style.pattern === 'entry' ? 112 : style.pattern === 'grid' ? 96 : 128;
-    ctx.fillStyle = style.accent;
-    ctx.globalAlpha = style.pattern === 'grid' ? 0.24 : 0.2;
+    const tileTint = mixColor(style.base, style.accent, style.pattern === 'grid' ? 0.52 : 0.38);
     for (let y = 0, row = 0; y < height; y += cell, row++) {
       for (let x = 0, column = 0; x < width; x += cell, column++) {
-        if ((row + column) % 2 === 0) ctx.fillRect(x, y, cell, cell);
+        if ((row + column) % 2 === 0) {
+          ctx.fillStyle = tileTint;
+          ctx.globalAlpha = 1;
+          ctx.fillRect(x, y, cell, cell);
+        }
       }
     }
+    drawTileWear(ctx, width, height, cell, style, random);
     ctx.strokeStyle = WALL_INK;
-    ctx.lineWidth = floorLineWidth;
-    ctx.globalAlpha = SURFACE_LINE_OPACITY;
+    ctx.lineWidth = floorLineWidth * 0.78;
+    ctx.globalAlpha = 0.34;
     for (let x = 0; x <= width; x += cell) wobblyLine(ctx, x, 0, x, height, random, 0.65);
     for (let y = 0; y <= height; y += cell) wobblyLine(ctx, 0, y, width, y, random, 0.65);
   } else if (style.pattern === 'carpet' || style.pattern === 'concrete') {
@@ -341,6 +562,41 @@ function drawFloorPattern(
     }
   }
   ctx.restore();
+}
+
+function drawTileWear(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  cell: number,
+  style: SurfaceStyle,
+  random: () => number,
+) {
+  const highlight = mixColor(style.base, '#fffaf0', 0.56);
+  const scuff = mixColor(style.base, WALL_INK, 0.34);
+  for (let top = 0; top < height; top += cell) {
+    for (let left = 0; left < width; left += cell) {
+      for (let speck = 0, count = 2 + Math.floor(random() * 3); speck < count; speck++) {
+        const x = left + 5 + random() * Math.max(2, cell - 10);
+        const y = top + 5 + random() * Math.max(2, cell - 10);
+        const radius = 1 + random() * 1.2;
+        ctx.fillStyle = rgbaColor(random() > 0.28 ? highlight : scuff, random() > 0.28 ? 0.32 : 0.12);
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (random() > 0.55) {
+        const x = left + 8 + random() * Math.max(2, cell - 16);
+        const y = top + 8 + random() * Math.max(2, cell - 16);
+        ctx.strokeStyle = rgbaColor(scuff, 0.1);
+        ctx.lineWidth = 0.45;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.quadraticCurveTo(x + 2, y - 0.8, x + 4 + random() * 3, y + (random() - 0.5) * 1.8);
+        ctx.stroke();
+      }
+    }
+  }
 }
 
 function addFloorEdgeTreatment(ctx: CanvasRenderingContext2D, style: SurfaceStyle, logicalSize: [number, number]) {
@@ -394,6 +650,8 @@ function textureFor(
   } else {
     drawWallPattern(context, style, roomId, wallSide, logicalSize, roomSize);
   }
+  bakeSurfaceDither(canvas, kind, roomId, roomSize);
+  drawPaperLayer(context, logicalSize);
 
   texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -419,10 +677,10 @@ export function roomSurfaceMaterial(roomId: string, kind: SurfaceKind, options: 
       const color = kind === 'floor'
         ? look.palette.floors[roomId]
         : wallSide === 'north' ? '#f2f0eb' : '#faf7f1';
-      return new THREE.MeshLambertMaterial({ color });
+      return markRoomSurfaceMaterial(new THREE.MeshLambertMaterial({ color }));
     }
     const color = '#ffffff';
-    material = new THREE.MeshLambertMaterial({ map: texture, color });
+    material = markRoomSurfaceMaterial(new THREE.MeshLambertMaterial({ map: texture, color }));
     materials.set(key, material);
   }
   return material;
