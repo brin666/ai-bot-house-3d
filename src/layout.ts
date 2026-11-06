@@ -5,18 +5,18 @@ export function renderLayout(app: HTMLElement) {
     <span class="brandmark" aria-hidden="true"></span>
     <div>
       <strong>BOT HOUSE</strong>
-      <small>像素小屋 · 本地模拟</small>
+      <small>像素小屋 · 本地演播</small>
     </div>
   </div>
   <div class="header-right">
-    <span class="online"><i></i>本地模拟中</span>
-    <div class="live-summary" aria-live="polite">
-      <div class="live-heading"><span class="live-mark" aria-hidden="true">✳</span><span>小屋观察日记</span><span class="live-local">本地模拟</span></div>
-      <div class="live-readout"><div class="live-current"><small>此刻</small><strong id="live-now">BOT 正在探索</strong></div><div class="live-balance"><small>虚拟金币</small><strong id="livecoins">250</strong></div></div>
-      <small id="live-log" class="live-recent"></small>
-      <p id="live-save-alert" class="save-alert" role="alert" hidden></p>
-    </div>
-    <button id="mode" class="mode" type="button">竖屏直播</button>
+    <span class="online"><i aria-hidden="true"></i>本地演播</span>
+    <button id="mode" class="mode" type="button" aria-label="切换竖屏直播模式" title="切换竖屏直播模式">竖屏直播</button>
+  </div>
+  <div class="live-summary" aria-live="polite">
+    <div class="live-heading"><span class="live-mark" aria-hidden="true">LIVE</span><span>此刻</span><span class="live-local">本地模拟</span></div>
+    <div class="live-readout"><div class="live-current"><small>BOT 动态</small><strong id="live-now">BOT 正在探索</strong></div><div class="live-balance"><small>虚拟金币</small><strong id="livecoins">250</strong></div></div>
+    <small id="live-log" class="live-recent"></small>
+    <p id="live-save-alert" class="save-alert" role="alert" hidden></p>
   </div>
 </header>
 <main>
@@ -29,7 +29,7 @@ export function renderLayout(app: HTMLElement) {
       <div class="paper-controls">
         <label for="dither-strength">抖色</label>
         <input id="dither-strength" type="range" min="0" max="1" step="0.01" value="1" aria-label="抖色强度">
-        <button id="dither" type="button">抖色：开启</button>
+        <button id="dither" type="button" aria-label="关闭抖色">抖色：开启</button>
       </div>
     </div>
     <div id="canvas"></div>
@@ -69,9 +69,18 @@ export function renderLayout(app: HTMLElement) {
     <div class="rail-actions">
       <div class="section-title"><div><h2>互动</h2></div></div>
       <div class="event-grid">
-        <button type="button" data-event="like"><b>♡</b><span>点赞</span><small>+10</small></button>
-        <button type="button" data-event="follow"><b>✦</b><span>关注</span><small>庆祝</small></button>
-        <button type="button" data-event="gift"><b>♢</b><span>礼物</span><small>+50</small></button>
+        <button type="button" data-event="like" aria-label="点赞，增加 10 金币">
+          <svg class="event-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 8.1c0 5.1-8.8 11-8.8 11S3.2 13.2 3.2 8.1A4.8 4.8 0 0 1 12 5.7a4.8 4.8 0 0 1 8.8 2.4Z"/></svg>
+          <strong class="event-count" aria-live="polite">0</strong><span>点赞</span><small>每次 +10 金币</small>
+        </button>
+        <button type="button" data-event="follow" aria-label="关注，触发 BOT 庆祝">
+          <svg class="event-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.8 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17l-5.6 3 1.1-6.2L3 9.4l6.2-.9L12 2.8Z"/></svg>
+          <strong class="event-count" aria-live="polite">0</strong><span>关注</span><small>每次庆祝</small>
+        </button>
+        <button type="button" data-event="gift" aria-label="送礼，增加 50 金币">
+          <svg class="event-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18v11H3zM2 6h20v4H2zM12 6v15M12 6H8.3a2.3 2.3 0 1 1 2.1-3.2C11.2 4.3 12 6 12 6Zm0 0h3.7a2.3 2.3 0 1 0-2.1-3.2C12.8 4.3 12 6 12 6Z"/></svg>
+          <strong class="event-count" aria-live="polite">0</strong><span>礼物</span><small>每次 +50 金币</small>
+        </button>
       </div>
       <button id="gift-furniture" class="gift-furniture" type="button">模拟礼物 · 送来盆栽</button>
       <p class="hint">+50 虚拟金币，Bot 会搬进一盆植物。不能兑换真实收入。</p>
@@ -102,7 +111,7 @@ export function renderLayout(app: HTMLElement) {
             <button id="inspect-furniture" type="button">查看</button>
           </div>
         </div>
-        <button id="reset-save" class="reset-save" type="button">重置存档</button>
+        <button id="reset-save" class="reset-save" type="button" aria-label="重置存档">重置存档</button>
       </div>
       <p class="note">金币只保存在这台浏览器里，用来本地布置，不能兑换成真实收入。</p>
     </div>
