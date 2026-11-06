@@ -46,13 +46,21 @@ export function renderLayout(app: HTMLElement) {
       <div><span class="tiny-dot"></span><strong id="status">BOT 正在探索</strong><span class="divider">/</span><span>拖动旋转 · 滚轮缩放</span></div>
     </div>
     <div class="live-overlay">
-      <div class="live-sink" hidden>
-        <small id="live-goal"></small>
-        <i id="liveprogress"></i>
-      </div>
+      <div id="live-audience-toasts" class="live-toast-stack live-audience-toasts" aria-live="polite" aria-atomic="false"></div>
+      <div id="live-spend-toasts" class="live-toast-stack live-spend-toasts" aria-live="polite" aria-atomic="false"></div>
+      <section class="live-wallet" id="live-wallet" aria-label="虚拟金币">
+        <div class="live-wallet-total"><strong id="live-coin-big">250</strong><span>金币</span></div>
+        <div class="live-sink">
+          <small id="live-goal">下一间：厨房餐厅 戳 500</small>
+          <div class="live-progress"><i id="liveprogress"></i></div>
+        </div>
+      </section>
     </div>
   </section>
   <aside class="rail">
+    <details class="live-debug" id="live-debug">
+      <summary>调试</summary>
+      <div class="live-debug-content" id="live-debug-content">
     <div class="rail-hero">
       <p class="eyebrow">小小生活</p>
       <h1>一间小屋，<em>慢慢长大。</em></h1>
@@ -84,6 +92,7 @@ export function renderLayout(app: HTMLElement) {
       </div>
       <button id="gift-furniture" class="gift-furniture" type="button">模拟礼物 · 送来盆栽</button>
       <p class="hint">+50 虚拟金币，Bot 会搬进一盆植物。不能兑换真实收入。</p>
+      <button id="auto-cam" class="auto-cam" type="button" aria-pressed="true">自动跟拍：开</button>
       <div class="actions">
         <span>陪 Bot</span>
         <div>
@@ -115,6 +124,8 @@ export function renderLayout(app: HTMLElement) {
       </div>
       <p class="note">金币只保存在这台浏览器里，用来本地布置，不能兑换成真实收入。</p>
     </div>
+      </div>
+    </details>
   </aside>
 </main>`;
 }
